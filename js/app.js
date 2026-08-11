@@ -75,9 +75,8 @@
 
     try { playChime('tap'); } catch (err) { }
 
-    const launchAR = () => {
-      if (!arScene) return;
-
+    // Start MindAR immediately to prevent dual camera warmup delays
+    if (arScene) {
       const arSystem = arScene.systems && arScene.systems['mindar-image-system'];
       if (arSystem) {
         arSystem.start();
@@ -87,20 +86,6 @@
           if (sys) sys.start();
         }, { once: true });
       }
-    };
-
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then((tempStream) => {
-          tempStream.getTracks().forEach(track => track.stop());
-          launchAR();
-        })
-        .catch((err) => {
-          console.error("Camera permission error:", err);
-          launchAR();
-        });
-    } else {
-      launchAR();
     }
   };
 
@@ -121,6 +106,8 @@
         if (arWrapper) {
           arWrapper.setAttribute('visible', 'true');
           if (arWrapper.object3D) arWrapper.object3D.visible = true;
+          // Trigger the A-Frame pop-up zoom-in animation
+          arWrapper.emit('targetFound');
         }
       });
 
@@ -132,6 +119,8 @@
         if (arWrapper) {
           arWrapper.setAttribute('visible', 'false');
           if (arWrapper.object3D) arWrapper.object3D.visible = false;
+          // Reset the scale back to 0 0 0 for next recognition
+          arWrapper.setAttribute('scale', '0 0 0');
         }
       });
 

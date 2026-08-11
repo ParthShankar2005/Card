@@ -56,8 +56,7 @@
 
     <!-- Transparent Shivam Jewels Full Invitation Card Target Preview -->
     <div class="qr-target-preview-wrapper">
-      <img src="./assets/targets.png" alt="Shivam Jewels Target Preview"
-        class="qr-target-preview-img" />
+      <img src="./assets/targets.png" alt="Shivam Jewels Target Preview" class="qr-target-preview-img" />
     </div>
 
     <div class="reticle-line"></div>
@@ -69,7 +68,8 @@
   <!-- Main WebAR Scene Container -->
   <a-scene id="ar-scene"
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 12;"
-    color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.25; alpha: true; sortTransparentObjects: true;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.25; alpha: true; sortTransparentObjects: true;"
     vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" embedded>
 
     <a-assets>
@@ -81,6 +81,8 @@
       <img id="shivamLogo" src="./assets/shivam_logo.png" />
       <!-- Load Shivam Jewels Card Back Image asset -->
       <img id="cardBack" src="./assets/Shivam_Jewels_Card_Back.png" />
+      <!-- Load Shivam Jewels Target Image asset -->
+      <img id="targets" src="./assets/targets.png" />
     </a-assets>
 
     <!-- Camera setup -->
@@ -96,9 +98,10 @@
       <a-entity light="type: point; color: #ffffff; intensity: 3.5; distance: 6" position="0 0.5 1"></a-entity>
 
       <!-- Wrapped 3D Experience Content -->
-      <a-entity id="ar-content-wrapper" visible="false">
+      <a-entity id="ar-content-wrapper" visible="false" scale="0 0 0"
+        animation="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutBack; startEvents: targetFound">
         <!-- 1. Shivam Jewels Card Back (Scaled to match tracking target width of 1.0) -->
-        <a-plane id="card-back-plane" src="#cardBack" position="0 0 0" rotation="0 0 0" width="1.0" height="1.45"
+        <a-plane id="card-back-plane" src="#targets" position="0 0 0" rotation="0 0 0" width="1.0" height="1"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
@@ -114,7 +117,7 @@
 
         <!-- 4. Authentic 3D Diamond Ring Showcase (Scaled and positioned floating in front) -->
         <a-entity id="3d-model-container" position="0 0 0.11" rotation="0 0 0"
-          animation="property: rotation; from: 0 0 0; to: 0 0 0; loop: true; dur: 14000; easing: linear">
+          animation="property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 10000; easing: linear">
           <a-gltf-model id="3d-model-entity" src="#glbModel" scale="0.28 0.28 0.28" position="0 0 0" rotation="0 0 0">
           </a-gltf-model>
         </a-entity>
