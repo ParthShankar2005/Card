@@ -1,0 +1,9 @@
+{
+  "name": "shivam-jewels-webar",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "start": "echo 'Static hosting'"
+  }
+}

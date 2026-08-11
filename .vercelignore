@@ -1,0 +1,9 @@
+# Vercel Deployment Ignore
+# Ensures Vercel deploys 100% pure static files without serverless function bundle limits
+server.js
+app.py
+serve.ps1
+requirements.txt
+*.blend
+.venv
+__pycache__
