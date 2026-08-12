@@ -345,11 +345,11 @@
         }
       });
 
-      // Material Enhancer for 3D Diamond GLB Model
-      const gltfModel = document.getElementById('3d-model-entity');
-      if (gltfModel) {
-        gltfModel.addEventListener('model-loaded', () => {
-          const meshObj = gltfModel.getObject3D('mesh');
+      // Material Enhancer for 3D Models (Diamond, Platinum & Avatar Shading)
+      const enhanceModelMaterials = (entity) => {
+        if (!entity) return;
+        const applyEnhancement = () => {
+          const meshObj = entity.getObject3D('mesh');
           if (meshObj && window.THREE) {
             meshObj.traverse((child) => {
               if (child.isMesh && child.material) {
@@ -371,8 +371,17 @@
               }
             });
           }
-        });
-      }
+        };
+
+        if (entity.getObject3D('mesh')) {
+          applyEnhancement();
+        }
+        entity.addEventListener('model-loaded', applyEnhancement);
+      };
+
+      enhanceModelMaterials(document.getElementById('ring-model-entity'));
+      enhanceModelMaterials(document.getElementById('shivam-model-entity'));
+      enhanceModelMaterials(document.getElementById('3d-model-entity'));
     }
 
     const btnStartAr = document.getElementById('btn-start-ar');
