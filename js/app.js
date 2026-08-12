@@ -1,6 +1,6 @@
 /**
  * WebAR Image Target Recognition & 3D Model Controller
- * Client: Shivam Jewels (card.shivamai.studio)
+ * Client: Shivam Jewels (ar.testsjit.in)
  * 
  * Target Image: assets/targets.png (1254x1254 compiled to assets/targets.mind)
  * Features:

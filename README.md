@@ -2,7 +2,7 @@
 
 An app-less WebAR experience for **Shivam Jewels (JCK Las Vegas Collection)** built with MindAR.js, A-Frame, and Three.js.
 
-Live WebAR Production App: [https://card.shivamai.studio](https://card.shivamai.studio)
+Live WebAR Production App: [https://ar.testsjit.in](https://ar.testsjit.in)
 
 ---
 
@@ -62,7 +62,8 @@ Card/
 │   ├── targets.png                   # High-res (1254x1254) primary card tracking image
 │   ├── targets.mind                  # MindAR compiled binary feature descriptors (532 KB)
 │   ├── QR view.png                   # High-resolution card back graphic
-│   └── card_qr_code.png              # High-density QR code pointing to card.shivamai.studio
+│   ├── company_qr_code.png           # High-density QR code pointing to ar.testsjit.in
+│   └── card_qr_code.png              # Production QR code pointing to ar.testsjit.in
 │
 ├── css/
 │   └── styles.css                    # Dark glassmorphic theme, scanning reticle HUD & animations
@@ -89,21 +90,19 @@ Card/
 
 ---
 
-## 🔄 Dual-Repository & Git Workflow
+## 🔄 Official Git Repository & Production Workflow
 
-This project is configured with a two-tier repository architecture:
+This project is maintained for **Shivam Jewels Pvt. Ltd.** with the official Azure DevOps production repository:
 
 | Remote Name | Target Repository | Scope & Purpose |
 | :--- | :--- | :--- |
-| **`origin`** | `https://github.com/ParthShankar2005/Card.git` | **Personal / Development:** Daily test commits, camera iterations & debugging. |
-| **`sjworld`** | `https://dev.azure.com/SJWorld/SJAR/_git/SJAR` | **Shivam Jewels Pvt. Ltd. / SJ Intelligence Team:** Official single final EOD production commit. |
+| **`sjworld`** | `https://dev.azure.com/SJWorld/SJAR/_git/SJAR` | **Shivam Jewels Pvt. Ltd. / SJ Intelligence Team:** Official production repository. |
 
 ### Operational Protocol:
-1. **During the workday**: Make local/dev commits to `origin` as needed while testing on mobile browser cameras.
-2. **End of day (Leaving office)**: When giving the signal to commit for the day, a single clean, verified, and structured production commit is pushed to `sjworld`:
-   ```powershell
-   git push sjworld main
-   ```
+Production commits and releases are pushed directly to the official `sjworld` repository:
+```powershell
+git push sjworld main
+```
 
 ---
 
