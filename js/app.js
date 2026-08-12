@@ -13,6 +13,36 @@
 (function () {
   'use strict';
 
+  // Register A-Frame Component to auto-play all embedded GLTF animation clips
+  if (typeof AFRAME !== 'undefined') {
+    AFRAME.registerComponent('play-all-animations', {
+      init: function () {
+        this.mixer = null;
+        this.el.addEventListener('model-loaded', (e) => {
+          const model = (e.detail && e.detail.model) || this.el.getObject3D('mesh');
+          const animations = (e.detail && e.detail.model && e.detail.model.animations) ||
+            (this.el.components['gltf-model'] && this.el.components['gltf-model'].model && this.el.components['gltf-model'].model.animations) ||
+            (model && model.animations) || [];
+
+          if (model && animations && animations.length > 0) {
+            console.log(`[GLTF Animation] Successfully activated ${animations.length} embedded animation tracks.`);
+            this.mixer = new THREE.AnimationMixer(model);
+            animations.forEach((clip) => {
+              const action = this.mixer.clipAction(clip);
+              action.setLoop(THREE.LoopRepeat, Infinity);
+              action.play();
+            });
+          }
+        });
+      },
+      tick: function (t, dt) {
+        if (this.mixer && dt) {
+          this.mixer.update(dt / 1000);
+        }
+      }
+    });
+  }
+
   // Synthesized Web Audio API Synthesizer for feedback chimes
   let audioCtx = null;
 
