@@ -73,8 +73,8 @@
     vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" embedded>
 
     <a-assets>
-      <!-- Load 3D GLB Gem Model asset -->
-      <a-asset-item id="glbModel" src="./assets/model.glb"></a-asset-item>
+      <!-- Load 3D GLB Gem Model asset (cache-busted to force download of new 387KB model) -->
+      <a-asset-item id="glbModel" src="./assets/model.glb?v=3"></a-asset-item>
       <!-- Load Shivam Jewels Thank You Banner Image asset -->
       <img id="shivamBanner" src="./assets/shivam_banner.png" />
       <!-- Load Shivam Jewels Official Logo Image asset -->
