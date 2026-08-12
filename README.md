@@ -91,7 +91,6 @@ Card/
 │
 ├── index.html                        # Main HTML5 entrypoint containing <a-scene> and UI modals
 ├── serve.ps1                         # PowerShell LAN Web server for local mobile browser testing
-├── vercel.json                       # Vercel deployment & CORS headers configuration
 ├── package.json                      # Root npm configuration & script shortcuts
 └── README.md                         # Technical documentation & architecture guide
 ```
@@ -171,13 +170,10 @@ Below is the spatial layout configured inside `<a-scene>` in `index.html`:
 
 Because WebAR relies on mobile camera hardware and WebGL rendering, mobile browser testing is primary.
 
-### 1. Launching Local PowerShell Server (Supports GLB & Mind MIME types)
+### Launching Local PowerShell Server (Supports GLB & Mind MIME types)
 Run the built-in PowerShell dev server:
 ```powershell
 .\serve.ps1 -Port 3000
 ```
 This serves the application on `http://localhost:3000` and displays your local Wi-Fi IP (e.g. `http://192.168.x.x:3000`) for access from your mobile phone connected to the same network.
 
-### 2. Vercel Cloud Deployment
-The app is configured for instant zero-configuration deployment on Vercel via [vercel.json](file:///c:/Users/Admin/Downloads/Card/vercel.json).
-All assets and routes have CORS and `no-cache` revalidation headers configured for immediate update delivery.
