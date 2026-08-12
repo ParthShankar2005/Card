@@ -76,6 +76,27 @@ a-scene {
   pointer-events: none;
 }
 
+/* Completely remove and disable A-Frame VR / AR buttons and UI overlays */
+.a-enter-vr,
+.a-enter-vr-button,
+.a-enter-ar,
+.a-enter-ar-button,
+.a-orientation-modal,
+.a-loader-title,
+[data-a-enter-vr-button] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+}
+
 /* Transparent White Glassmorphism Panel Utility */
 .glass-panel {
   background: var(--glass-bg);

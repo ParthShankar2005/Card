@@ -203,22 +203,57 @@
       });
     }
 
-    // Fix iOS video playback attributes when video element is added to DOM
+    // Purge any A-Frame VR / AR buttons from DOM
+    const removeVRUI = () => {
+      const vrElements = document.querySelectorAll(
+        '.a-enter-vr, .a-enter-vr-button, .a-enter-ar, .a-enter-ar-button, .a-orientation-modal, [data-a-enter-vr-button]'
+      );
+      vrElements.forEach((el) => {
+        if (el && el.parentNode) {
+          el.parentNode.removeChild(el);
+        }
+      });
+    };
+
+    removeVRUI();
+
+    // Fix iOS video playback attributes & instantly remove injected VR buttons
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
-          if (node.tagName === 'VIDEO') {
-            node.setAttribute('playsinline', 'true');
-            node.setAttribute('webkit-playsinline', 'true');
-            node.setAttribute('muted', 'true');
-            node.setAttribute('autoplay', 'true');
-            node.playsInline = true;
-            node.muted = true;
+          if (node.nodeType === 1) {
+            if (node.tagName === 'VIDEO') {
+              node.setAttribute('playsinline', 'true');
+              node.setAttribute('webkit-playsinline', 'true');
+              node.setAttribute('muted', 'true');
+              node.setAttribute('autoplay', 'true');
+              node.playsInline = true;
+              node.muted = true;
+            }
+            if (
+              node.classList &&
+              (node.classList.contains('a-enter-vr') ||
+                node.classList.contains('a-enter-vr-button') ||
+                node.classList.contains('a-enter-ar') ||
+                node.classList.contains('a-orientation-modal'))
+            ) {
+              node.remove();
+            }
           }
         });
       });
     });
-    observer.observe(document.body, { childList: true });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    if (arScene) {
+      arScene.addEventListener('renderstart', () => {
+        removeVRUI();
+        if (arScene.renderer) {
+          arScene.renderer.setClearColor(0x000000, 0);
+          arScene.renderer.alpha = true;
+        }
+      });
+    }
 
     // Target Recognition Events
     if (targetEntity) {
