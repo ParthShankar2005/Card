@@ -6,12 +6,12 @@ def generate_qr():
         {
             "name": "Company Production WebAR QR",
             "url": "https://ar.testsjit.in",
-            "filenames": ["company_qr_code.png", "card_qr_code.png", "qr/company_qr_code.png", "qr/card_qr_code.png"]
+            "filenames": ["qr/company_qr_code.png"]
         },
         {
             "name": "Personal / Development WebAR QR",
             "url": "https://card.shivamai.studio",
-            "filenames": ["parth_qr_code.png", "qr/parth_qr_code.png"]
+            "filenames": ["qr/parth_qr_code.png"]
         }
     ]
     

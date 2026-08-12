@@ -64,13 +64,13 @@ Card/
 │   │   └── Ring.glb                  # 3D Gem Ring model
 │   │
 │   ├── qr/                           # QR Code Assets (with Quiet Zone White Border)
-│   │   ├── company_qr_code.png       # High-density QR code pointing to ar.testsjit.in
-│   │   ├── card_qr_code.png          # Production QR code pointing to ar.testsjit.in
+│   │   ├── company_qr_code.png       # Official Company QR code pointing to ar.testsjit.in
 │   │   └── parth_qr_code.png         # Development QR code pointing to card.shivamai.studio
 │   │
-│   ├── Booth.png                     # Left-side Shivam Jewels booth poster panel
-│   ├── shivam_banner.png             # Right-side Shivam Jewels invitation banner
-│   ├── shivam_logo.png               # Center-top transparent brand logo
+│   │   ├── Booth.png                 # Left-side Shivam Jewels booth poster panel
+│   │   ├── shivam_banner.png         # Right-side Shivam Jewels invitation banner
+│   │   └── shivam_logo.png           # Center-top transparent brand logo
+│   │
 │   └── targets.mind                  # MindAR compiled binary feature descriptors (532 KB)
 │
 ├── css/
