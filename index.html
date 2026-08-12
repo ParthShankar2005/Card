@@ -73,8 +73,8 @@
     vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" embedded>
 
     <a-assets>
-      <!-- Load 3D GLB Gem Model asset (cache-busted to force download of new 387KB model) -->
-      <a-asset-item id="glbModel" src="./assets/Shivam.glb"></a-asset-item>
+      <!-- Load 3D GLB Gem Model asset -->
+      <a-asset-item id="glbModel" src="./assets/Shivam.glb?v=1"></a-asset-item>
       <!-- Load Shivam Jewels Thank You Banner Image asset -->
       <img id="shivamBanner" src="./assets/shivam_banner.png" />
       <!-- Load Shivam Jewels Official Logo Image asset -->
@@ -117,9 +117,9 @@
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 4. Authentic 3D Diamond Ring Showcase (Upright & Facing Camera Directly) -->
-        <a-entity id="3d-model-container" position="0 -0.4 -0.1" rotation="90 0 0">
-          <a-gltf-model id="3d-model-entity" src="#glbModel" scale="0.3 0.3 0.3" position="0 0 0" rotation="0 0 0"
+        <!-- 4. Authentic 3D Diamond Ring Showcase (Upright & Floating in Front of Card) -->
+        <a-entity id="3d-model-container" position="0 0 0.25" rotation="90 0 0">
+          <a-gltf-model id="3d-model-entity" src="#glbModel" scale="0.1 0.1 0.1" position="0 0 0" rotation="0 0 0"
             play-all-animations>
           </a-gltf-model>
         </a-entity>
