@@ -1,10 +1,10 @@
 /* Transparent White Glassmorphism WebAR Experience Design System */
 :root {
-  --bg-main: #0f172a;
-  --glass-bg: rgba(255, 255, 255, 0.82);
-  --glass-bg-hover: rgba(255, 255, 255, 0.95);
+  --bg-main: #070a14;
+  --glass-bg: rgba(255, 255, 255, 0.88);
+  --glass-bg-hover: rgba(255, 255, 255, 0.98);
   --glass-border: rgba(255, 255, 255, 0.95);
-  --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.18), 0 2px 8px 0 rgba(255, 255, 255, 0.4) inset;
+  --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.28), 0 2px 8px 0 rgba(255, 255, 255, 0.4) inset;
   --primary: #0284c7;
   --primary-hover: #0369a1;
   --accent: #2563eb;
@@ -28,17 +28,52 @@
   padding: 0;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 html, body {
   font-family: var(--font-family);
-  background: transparent !important;
-  background-color: transparent !important;
+  background: #070a14 !important;
+  background-color: #070a14 !important;
   color: var(--text-main);
   overflow: hidden;
-  width: 100vw;
-  height: 100vh;
-  position: relative;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
+/* Ensure video feed is properly layered behind canvas and visible */
+video {
+  position: absolute !important;
+  z-index: 1 !important;
+  pointer-events: none;
+}
+
+/* A-Frame scene and WebGL Canvas layer */
+a-scene {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 2 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.a-canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 2 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  pointer-events: none;
 }
 
 /* Transparent White Glassmorphism Panel Utility */
@@ -127,14 +162,15 @@ html, body {
   100% { opacity: 1; transform: scale(1.2); }
 }
 
-/* Camera Reticle & Translucent QR Target Overlay */
+/* Camera Reticle & Translucent Target Overlay (1:1 Target Aspect Ratio) */
 #scanning-reticle {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 230px;
-  height: 330px;
+  width: min(76vw, 280px);
+  height: min(76vw, 280px);
+  aspect-ratio: 1 / 1;
   pointer-events: none;
   z-index: 50;
   display: flex;
@@ -165,8 +201,8 @@ html, body {
 
 /* Translucent Card Border Target Preview Overlay inside scanning frame */
 .qr-target-preview-wrapper {
-  width: 195px;
-  height: 290px;
+  width: 86%;
+  height: 86%;
   border-radius: 16px;
   overflow: hidden;
   display: flex;
@@ -183,7 +219,7 @@ html, body {
   width: 92%;
   height: 92%;
   object-fit: contain;
-  opacity: 0.85;
+  opacity: 0.88;
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
   border-radius: 8px;
 }
@@ -315,6 +351,10 @@ html, body {
   border-radius: 16px;
   box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: var(--transition-fast);
 }
 
 .btn-primary-lg:hover {
@@ -324,12 +364,18 @@ html, body {
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
 }
 
+.btn-primary-lg:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* Modals & Guidance Card */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: radial-gradient(circle at center, #0f172a 0%, #070a14 100%);
-  z-index: 200;
+  z-index: 999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -345,7 +391,7 @@ html, body {
 }
 
 .modal-card {
-  width: min(90%, 420px);
+  width: min(92%, 440px);
   padding: 32px 28px;
   text-align: center;
   display: flex;
@@ -367,8 +413,13 @@ html, body {
   box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
 }
 
+.modal-icon.error {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.35);
+}
+
 .modal-title {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--text-main);
 }
@@ -377,6 +428,23 @@ html, body {
   font-size: 0.95rem;
   color: var(--text-muted);
   line-height: 1.55;
+}
+
+/* Camera Error Warning Box */
+.camera-error-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.88rem;
+  color: #991b1b;
+  display: none;
+  width: 100%;
+}
+
+.camera-error-box.show {
+  display: block;
 }
 
 .modal-actions {
@@ -403,6 +471,7 @@ html, body {
 /* Responsive adjustments */
 @media (max-width: 480px) {
   #app-header {
+    bottom: 24px;
     padding: 8px 14px;
     font-size: 0.9rem;
   }
@@ -411,36 +480,13 @@ html, body {
     font-size: 0.95rem;
   }
 
-  #control-bar {
-    gap: 6px;
-    padding: 6px 10px;
-  }
-
-  .btn-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 0.95rem;
-  }
-
-  .btn-pill {
-    padding: 8px 14px;
-    font-size: 0.82rem;
-  }
-
   #scanning-reticle {
-    width: 220px;
-    height: 220px;
+    width: min(80vw, 260px);
+    height: min(80vw, 260px);
   }
 
   .qr-target-preview-wrapper {
-    width: 170px;
-    height: 170px;
+    width: 86%;
+    height: 86%;
   }
-}
-
-/* Ensure the A-Frame canvas and scene are transparent so the camera feed is visible */
-a-scene,
-.a-canvas {
-  background-color: transparent !important;
-  background: transparent !important;
 }

@@ -81,7 +81,9 @@
       <img id="shivamLogo" src="./assets/shivam_logo.png" />
       <!-- Load Shivam Jewels Card Back Image asset -->
       <img id="cardBack" src="./assets/Shivam_Jewels_Card_Back.png" />
-      <!-- Load Shivam Jewels Target Image asset -->
+      <!-- Load Shivam Jewels QR View Card Back Image asset -->
+      <img id="qrView" src="./assets/QR%20view.png" />
+      <!-- Load Shivam Jewels Booth Target Image asset -->
       <img id="Booth" src="./assets/Booth.png" />
     </a-assets>
 
@@ -118,7 +120,7 @@
         <!-- 4. Authentic 3D Diamond Ring Showcase (Scaled and positioned floating in front) -->
         <a-entity id="3d-model-container" position="0 0 0.11" rotation="0 0 0"
           animation="property: rotation; from: 0 0 0; to: 0 360 0; loop: true; dur: 10000; easing: linear">
-          <a-gltf-model id="3d-model-entity" src="#glbModel" scale="0.28 0.28 0.28" position="0 0 0" rotation="0 0 0">
+          <a-gltf-model id="3d-model-entity" src="#glbModel" scale="1 1 1" position="0 0 0" rotation="0 0 0">
           </a-gltf-model>
         </a-entity>
       </a-entity>
@@ -126,20 +128,23 @@
     </a-entity>
   </a-scene>
 
-  <!-- Camera Permission Modal -->
+  <!-- Camera Permission & Welcome Modal -->
   <div id="permission-modal" class="modal-overlay">
     <div class="modal-card glass-panel">
-      <div class="modal-icon">
+      <div id="modal-icon" class="modal-icon">
         <i class="fas fa-gem"></i>
       </div>
-      <h2 class="modal-title">Shivam Jewels WebAR</h2>
-      <p class="modal-desc">
-        Point your phone camera at the Shivam Jewels Card Shape target to reveal the floating 3D diamond experience in
-        Augmented Reality.
+      <h2 id="modal-title" class="modal-title">Shivam Jewels WebAR</h2>
+      <p id="modal-desc" class="modal-desc">
+        Point your mobile camera at the Shivam Jewels card target to launch the interactive 3D WebAR showcase.
       </p>
+
+      <!-- Dynamic Camera Error Alert Box -->
+      <div id="camera-error" class="camera-error-box"></div>
+
       <div class="modal-actions">
         <button id="btn-start-ar" class="btn-pill btn-primary-lg" onclick="handleStartARClick(event)">
-          <i class="fas fa-video"></i> Allow Camera & Start WebAR
+          <i class="fas fa-video" id="btn-icon"></i> <span id="btn-text">Allow Camera & Start WebAR</span>
         </button>
       </div>
     </div>
