@@ -13,11 +13,14 @@
 (function () {
   'use strict';
 
-  // Register A-Frame Component to auto-play all embedded GLTF animation clips
+  // Register A-Frame Component to auto-play all embedded GLTF animation clips in sync with target detection
   if (typeof AFRAME !== 'undefined') {
     AFRAME.registerComponent('play-all-animations', {
       init: function () {
         this.mixer = null;
+        this.actions = [];
+        this.isPlaying = false;
+
         this.el.addEventListener('model-loaded', (e) => {
           const model = (e.detail && e.detail.model) || this.el.getObject3D('mesh');
           const animations = (e.detail && e.detail.model && e.detail.model.animations) ||
@@ -25,18 +28,46 @@
             (model && model.animations) || [];
 
           if (model && animations && animations.length > 0) {
-            console.log(`[GLTF Animation] Successfully activated ${animations.length} embedded animation tracks.`);
+            console.log(`[GLTF Animation] Ready with ${animations.length} embedded animation tracks.`);
             this.mixer = new THREE.AnimationMixer(model);
-            animations.forEach((clip) => {
+            this.actions = animations.map((clip) => {
               const action = this.mixer.clipAction(clip);
               action.setLoop(THREE.LoopRepeat, Infinity);
-              action.play();
+              action.clampWhenFinished = false;
+              return action;
             });
           }
         });
+
+        // Synchronize animation playback to only play when card target is visible
+        const targetEntity = document.getElementById('ar-target');
+        if (targetEntity) {
+          targetEntity.addEventListener('targetFound', () => {
+            this.playAnimations();
+          });
+          targetEntity.addEventListener('targetLost', () => {
+            this.pauseAnimations();
+          });
+        }
+      },
+      playAnimations: function () {
+        if (!this.mixer || this.actions.length === 0) return;
+        this.mixer.setTime(0);
+        this.actions.forEach((action) => {
+          action.reset();
+          action.play();
+        });
+        this.isPlaying = true;
+      },
+      pauseAnimations: function () {
+        if (!this.mixer) return;
+        this.actions.forEach((action) => {
+          action.stop();
+        });
+        this.isPlaying = false;
       },
       tick: function (t, dt) {
-        if (this.mixer && dt) {
+        if (this.mixer && this.isPlaying && dt) {
           this.mixer.update(dt / 1000);
         }
       }
