@@ -6,24 +6,24 @@ def generate_qr():
         {
             "name": "Company Production WebAR QR",
             "url": "https://ar.testsjit.in",
-            "filenames": ["company_qr_code.png", "card_qr_code.png"]
+            "filenames": ["company_qr_code.png", "card_qr_code.png", "qr/company_qr_code.png", "qr/card_qr_code.png"]
         },
         {
             "name": "Personal / Development WebAR QR",
             "url": "https://card.shivamai.studio",
-            "filenames": ["parth_qr_code.png"]
+            "filenames": ["parth_qr_code.png", "qr/parth_qr_code.png"]
         }
     ]
     
     assets_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
-    os.makedirs(assets_dir, exist_ok=True)
+    os.makedirs(os.path.join(assets_dir, "qr"), exist_ok=True)
     
     for item in targets:
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_H,
             box_size=10,
-            border=4,
+            border=5,  # White border margin (quiet zone)
         )
         qr.add_data(item["url"])
         qr.make(fit=True)
@@ -36,4 +36,5 @@ def generate_qr():
 
 if __name__ == "__main__":
     generate_qr()
+
 

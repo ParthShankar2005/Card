@@ -53,17 +53,25 @@ Below is the connection flow showing how every component in the codebase interac
 
 ```
 Card/
-├── assets/                           # 3D Models, Textures & MindAR Target Files
-│   ├── Shivam.glb                    # 3D Animated Shivam Showcase model with embedded animations
-│   ├── Ring.glb                      # 3D Gem Ring model
+├── assets/                           # 3D Models, Cards, Textures & MindAR Target Files
+│   ├── cards/                        # Invitation & Tracking Card Images
+│   │   ├── Company_f_view.png        # Official Company front card with ar.testsjit.in QR
+│   │   ├── Parth_f_view.png          # Development front card with card.shivamai.studio QR
+│   │   └── targets.png               # High-res primary card tracking target (AR Vision)
+│   │
+│   ├── glb/                          # 3D Models
+│   │   ├── Shivam.glb                # 3D Animated Shivam Showcase model
+│   │   └── Ring.glb                  # 3D Gem Ring model
+│   │
+│   ├── qr/                           # QR Code Assets (with Quiet Zone White Border)
+│   │   ├── company_qr_code.png       # High-density QR code pointing to ar.testsjit.in
+│   │   ├── card_qr_code.png          # Production QR code pointing to ar.testsjit.in
+│   │   └── parth_qr_code.png         # Development QR code pointing to card.shivamai.studio
+│   │
 │   ├── Booth.png                     # Left-side Shivam Jewels booth poster panel
-│   ├── shivam_banner.png             # Right-side Shivam Jewels invitation & showcase banner
+│   ├── shivam_banner.png             # Right-side Shivam Jewels invitation banner
 │   ├── shivam_logo.png               # Center-top transparent brand logo
-│   ├── targets.png                   # High-res (1254x1254) primary card tracking image
-│   ├── targets.mind                  # MindAR compiled binary feature descriptors (532 KB)
-│   ├── QR view.png                   # High-resolution card back graphic
-│   ├── company_qr_code.png           # High-density QR code pointing to ar.testsjit.in
-│   └── card_qr_code.png              # Production QR code pointing to ar.testsjit.in
+│   └── targets.mind                  # MindAR compiled binary feature descriptors (532 KB)
 │
 ├── css/
 │   └── styles.css                    # Dark glassmorphic theme, scanning reticle HUD & animations
