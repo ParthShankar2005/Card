@@ -21,5 +21,5 @@ app.get('*', (req, res) => {
 });
 
 http.createServer(app).listen(PORT, () => {
-  console.log(`🚀 WebAR Server Running on http://localhost:${PORT}`);
+  console.log(`WebAR Server Running on http://localhost:${PORT}`);
 });

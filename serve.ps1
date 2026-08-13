@@ -2,33 +2,44 @@ param (
     [int]$Port = 3000
 )
 
-$listener = New-Object System.Net.HttpListener
-$prefix = "http://*:$Port/"
-$listener.Prefixes.Add("http://localhost:$Port/")
-$listener.Prefixes.Add("http://127.0.0.1:$Port/")
+$root = $PSScriptRoot
+$listener = $null
 
-# Attempt to get local IP address for mobile phone testing
+# Get local IP address for mobile phone testing
 $localIP = (Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias 'Wi-Fi*', 'Ethernet*' -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notlike "169.254*" } | Select-Object -First 1).IPAddress
 
 try {
-    $listener.Start()
-} catch {
-    # If wildcard binding failed (requires admin), fallback to localhost only
     $listener = New-Object System.Net.HttpListener
     $listener.Prefixes.Add("http://localhost:$Port/")
     $listener.Prefixes.Add("http://127.0.0.1:$Port/")
+    if ($localIP) {
+        # Try adding local network IP prefix
+        try {
+            $listener.Prefixes.Add("http://$($localIP):$Port/")
+        } catch {}
+    }
     $listener.Start()
+} catch {
+    # If adding multiple prefixes failed, retry with only localhost
+    try {
+        if ($listener) { $listener.Close() }
+        $listener = New-Object System.Net.HttpListener
+        $listener.Prefixes.Add("http://localhost:$Port/")
+        $listener.Start()
+    } catch {
+        Write-Host "`n[ERROR] Port $Port is already in use by another application." -ForegroundColor Red
+        Write-Host "You can specify a different port: .\serve.ps1 -Port 3001`n" -ForegroundColor Yellow
+        exit 1
+    }
 }
-
-$root = $PSScriptRoot
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "🚀 WebAR Local Dev Server Running" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  👉 Local:   http://localhost:$Port/" -ForegroundColor White
-Write-Host "  👉 127.0.0.1: http://127.0.0.1:$Port/" -ForegroundColor White
+Write-Host " Local:   http://localhost:$Port/" -ForegroundColor White
+Write-Host " 127.0.0.1: http://127.0.0.1:$Port/" -ForegroundColor White
 if ($localIP) {
-    Write-Host "  👉 Network: http://$($localIP):$Port/ (Open on Mobile)" -ForegroundColor Yellow
+    Write-Host " Network: http://$($localIP):$Port/ (Open on Mobile)" -ForegroundColor Yellow
 }
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "Press Ctrl+C to stop the server.`n" -ForegroundColor DarkGray
@@ -96,6 +107,10 @@ try {
         $response.Close()
     }
 } finally {
-    $listener.Stop()
-    $listener.Close()
+    if ($listener -and $listener.IsListening) {
+        $listener.Stop()
+    }
+    if ($listener) {
+        $listener.Close()
+    }
 }

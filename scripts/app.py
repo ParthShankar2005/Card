@@ -10,7 +10,7 @@ from mindar.types import DetectorConfig, MatcherConfig
 
 app = Flask(__name__, static_folder=".", static_url_path="", template_folder=".")
 
-MODEL_PATH = "assets/targets.mind" if os.path.exists("assets/targets.mind") else ("targets 1.mind" if os.path.exists("targets 1.mind") else "targets.mind")
+MODEL_PATH = "assets/targets.mind"
 
 
 # ============================================================

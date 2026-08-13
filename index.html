@@ -5,8 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Shivam Jewels | 3D WebAR Experience</title>
-  <meta name="description"
-    content="Official WebAR experience powered by MindAR and Three.js for Shivam Jewels." />
+  <meta name="description" content="Official WebAR experience powered by MindAR and Three.js for Shivam Jewels." />
 
   <!-- OpenGraph -->
   <meta property="og:title" content="Shivam Jewels | 3D WebAR Experience" />
@@ -21,7 +20,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="./css/styles.css?v=2.0.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=2.3.0" />
 
   <!-- A-Frame Library (v1.5.0) -->
   <script src="./js/aframe.min.js"></script>
@@ -30,20 +29,30 @@
   <script src="./js/mindar-image-aframe.prod.js"></script>
 
   <!-- Application Controller Script -->
-  <script src="./js/app.js?v=2.0.0" defer></script>
+  <script src="./js/app.js?v=2.3.0" defer></script>
 </head>
 
 <body>
+
+  <!-- Fullscreen Luxury Shivam Jewels Diamond Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-content">
+      <div class="loading-diamond-wrapper">
+        <div class="loading-diamond-base"></div>
+        <div class="loading-diamond-fill" id="diamond-fill"></div>
+      </div>
+      <div class="loading-percentage" id="loading-percentage">0%</div>
+    </div>
+  </div>
 
   <!-- Top Glassmorphic Navigation & Status Bar -->
   <header id="app-header" class="glass-panel">
     <div class="brand-badge">
       <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
-      <span class="brand-badge-text">Shivam Jewels</span>
     </div>
     <div id="status-pill" class="status-pill searching">
       <div class="status-dot"></div>
-      <span id="status-text">Scanning Target...</span>
+      <span id="status-text">Scan SJ Card</span>
     </div>
   </header>
 
@@ -56,12 +65,12 @@
 
     <!-- Transparent Shivam Jewels Full Invitation Card Target Preview -->
     <div class="qr-target-preview-wrapper">
-      <img src="./assets/cards/targets.png" alt="Shivam Jewels Target Preview" class="qr-target-preview-img" />
+      <img src="./assets/cards/targets.png" alt="Shivam Jewels Card Preview" class="qr-target-preview-img" />
     </div>
 
     <div class="reticle-line"></div>
     <div class="scanning-label">
-      <i class="fas fa-gem"></i> Point Camera at Shivam Jewels Card Target
+      <i class="fas fa-camera"></i> Point camera to scan SJ card
     </div>
   </div>
 
@@ -140,10 +149,10 @@
       <div id="modal-icon" class="modal-logo-wrapper">
         <i class="fas fa-camera"></i>
       </div>
-      <h2 id="modal-title" class="modal-title">Camera Access Required</h2>
-      <p class="modal-subtitle">Shivam Jewels WebAR</p>
+      <h2 id="modal-title" class="modal-title">Camera Access Needed</h2>
+      <p class="modal-subtitle">Shivam Jewels</p>
       <p id="modal-desc" class="modal-desc">
-        Please allow camera access in your browser to experience the Shivam Jewels interactive 3D WebAR showcase.
+        Camera permission is needed to scan the SJ card and view the AR experience.
       </p>
 
       <!-- Dynamic Camera Error & Site Settings Guide Box -->
@@ -151,7 +160,7 @@
 
       <div class="modal-actions">
         <button id="btn-start-ar" class="btn-primary-lg" onclick="handleStartARClick(event)">
-          <i class="fas fa-video" id="btn-icon"></i> <span id="btn-text">Enable Camera & Start WebAR</span>
+          <i class="fas fa-video" id="btn-icon"></i> <span id="btn-text">Enable Camera</span>
         </button>
       </div>
     </div>

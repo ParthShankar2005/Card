@@ -94,7 +94,7 @@
     try {
       const ctx = getAudioContext();
       if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
+        ctx.resume().catch(() => { });
       }
     } catch (e) {
       console.warn("AudioContext resume error:", e);
@@ -163,8 +163,8 @@
       modalIcon.innerHTML = isBlocked ? '<i class="fas fa-lock"></i>' : '<i class="fas fa-camera"></i>';
     }
 
-    if (modalTitle) modalTitle.textContent = title || 'Camera Access Required';
-    if (modalDesc) modalDesc.textContent = desc || 'Please allow camera access in your browser to experience Shivam Jewels WebAR.';
+    if (modalTitle) modalTitle.textContent = title || 'Camera Access Needed';
+    if (modalDesc) modalDesc.textContent = desc || 'Camera permission is needed to scan the SJ card and view the AR experience.';
 
     if (errorBox) {
       if (errorDetails) {
@@ -178,7 +178,7 @@
     if (btnStart) {
       btnStart.disabled = false;
       if (btnIcon) btnIcon.className = isBlocked ? 'fas fa-redo' : 'fas fa-video';
-      if (btnText) btnText.textContent = isBlocked ? 'Retry Camera Access' : 'Enable Camera & Start AR';
+      if (btnText) btnText.textContent = isBlocked ? 'Try Again' : 'Enable Camera';
     }
   }
 
@@ -211,16 +211,16 @@
 
     if (btnStart) btnStart.disabled = true;
     if (btnIcon) btnIcon.className = 'fas fa-spinner fa-spin';
-    if (btnText) btnText.textContent = 'Starting Camera...';
+    if (btnText) btnText.textContent = 'Opening Camera...';
     if (errorBox) errorBox.classList.remove('show');
 
     // Ensure secure origin
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       isARStarting = false;
       showCameraGuidance(
-        'HTTPS Connection Required',
-        'Camera access requires a secure HTTPS connection or supported modern browser.',
-        'Please open this site using HTTPS (e.g. https://ar.testsjit.in).',
+        'HTTPS Required',
+        'Camera access requires a secure connection.',
+        'Please open this website using HTTPS.',
         true
       );
       return;
@@ -269,24 +269,24 @@
     isARRunning = false;
     console.error("WebAR camera error:", err);
 
-    let title = 'Camera Access Required';
-    let desc = 'Shivam Jewels WebAR needs camera access to recognize the card tracking target.';
+    let title = 'Camera Access Needed';
+    let desc = 'Camera permission is needed to scan the SJ card.';
     let guide = `
       <ol class="camera-steps-guide">
-        <li>Tap the lock/settings icon in your browser address bar.</li>
-        <li>Ensure <strong>Camera</strong> is set to <strong>Allow</strong>.</li>
-        <li>Tap <strong>Retry Camera Access</strong> below.</li>
+        <li>Tap the lock icon in your browser address bar.</li>
+        <li>Set <strong>Camera</strong> to <strong>Allow</strong>.</li>
+        <li>Tap <strong>Try Again</strong> below.</li>
       </ol>
     `;
 
     if (err && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError')) {
-      title = 'No Camera Detected';
-      desc = 'No suitable camera hardware was detected on this device.';
-      guide = 'Please open this link on a mobile smartphone with a working rear camera.';
+      title = 'No Camera Found';
+      desc = 'No working camera was detected on this device.';
+      guide = 'Please open this page on a smartphone with a camera.';
     } else if (err && (err.name === 'NotReadableError' || err.name === 'TrackStartError')) {
-      title = 'Camera In Use';
-      desc = 'The camera is currently being used by another application or browser tab.';
-      guide = 'Please close any background camera apps or tabs and tap Retry.';
+      title = 'Camera Busy';
+      desc = 'The camera is being used by another app or tab.';
+      guide = 'Please close other camera apps and tap Try Again.';
     }
 
     showCameraGuidance(title, desc, guide, true);
@@ -304,7 +304,75 @@
   };
 
   // ==========================================================================
-  // 5. PERMISSION STATE QUERY & AUTOMATIC STARTUP
+  // 5. LUXURY SHIVAM JEWELS DIAMOND LOADING SCREEN CONTROLLER
+  // ==========================================================================
+  function setupLoadingScreen(onComplete) {
+    const loadingScreen = document.getElementById('loading-screen');
+    const diamondFill = document.getElementById('diamond-fill');
+    const percentageText = document.getElementById('loading-percentage');
+
+    if (!loadingScreen) {
+      if (typeof onComplete === 'function') onComplete();
+      return;
+    }
+
+    let currentProgress = 0;
+    let isFinished = false;
+
+    const updateUI = (progress) => {
+      const pct = Math.min(100, Math.max(0, Math.floor(progress)));
+      if (percentageText) percentageText.textContent = `${pct}%`;
+      if (diamondFill) {
+        diamondFill.style.setProperty('--loading-progress', `${pct}%`);
+      }
+    };
+
+    const startTime = performance.now();
+    const duration = 3000; // 3.0 seconds duration as requested
+
+    function animateProgress(now) {
+      const elapsed = now - startTime;
+      const timeRatio = Math.min(1, elapsed / duration);
+
+      // Smooth progression from 0 to 100%
+      const target = timeRatio * 100;
+      currentProgress += (target - currentProgress) * 0.25;
+
+      if (Math.abs(target - currentProgress) < 0.2) {
+        currentProgress = target;
+      }
+
+      updateUI(currentProgress);
+
+      if (timeRatio >= 1 && !isFinished) {
+        isFinished = true;
+        updateUI(100);
+
+        // Hold cleanly at 100% for 200ms before fading out (no glow effect)
+        setTimeout(() => {
+          loadingScreen.classList.add('fade-out');
+
+          // Trigger camera start simultaneously
+          if (typeof onComplete === 'function') {
+            onComplete();
+          }
+
+          // Clean up DOM after fade transition completes
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 550);
+        }, 220);
+        return;
+      }
+
+      requestAnimationFrame(animateProgress);
+    }
+
+    requestAnimationFrame(animateProgress);
+  }
+
+  // ==========================================================================
+  // 6. PERMISSION STATE QUERY & AUTOMATIC STARTUP
   // ==========================================================================
   async function checkPermissionsAndAutoStart() {
     unlockAudioContext();
@@ -361,7 +429,7 @@
   }
 
   // ==========================================================================
-  // 6. MAIN APPLICATION INITIALIZATION
+  // 7. MAIN APPLICATION INITIALIZATION
   // ==========================================================================
   function initApp() {
     const targetEntity = document.getElementById('ar-target');
@@ -371,7 +439,7 @@
     const arWrapper = document.getElementById('ar-content-wrapper');
     const arScene = document.getElementById('ar-scene');
 
-    // Transparent WebGL canvas: Prevents white/black screen flicker
+    // Transparent WebGL canvas: Prevents white/black/blue screen flicker
     if (arScene) {
       const makeCanvasTransparent = () => {
         if (arScene.renderer) {
@@ -430,7 +498,7 @@
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
         if (statusPill) statusPill.className = 'status-pill tracking';
-        if (statusText) statusText.textContent = '✨ Card Recognized';
+        if (statusText) statusText.textContent = 'SJ Card Detected';
         if (reticle) reticle.classList.add('hidden');
         playChime('success');
 
@@ -443,7 +511,7 @@
 
       targetEntity.addEventListener('targetLost', () => {
         if (statusPill) statusPill.className = 'status-pill searching';
-        if (statusText) statusText.textContent = 'Scanning Target...';
+        if (statusText) statusText.textContent = 'Scan SJ Card';
         if (reticle) reticle.classList.remove('hidden');
 
         if (arWrapper) {
@@ -497,8 +565,10 @@
       btnStartAr.onclick = window.handleStartARClick;
     }
 
-    // Automatic Camera Launch
-    checkPermissionsAndAutoStart();
+    // Launch loading screen first, then start camera session smoothly upon completion
+    setupLoadingScreen(() => {
+      checkPermissionsAndAutoStart();
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -507,3 +577,4 @@
     initApp();
   }
 })();
+
