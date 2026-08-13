@@ -54,6 +54,13 @@ Below is the connection flow showing how every component in the codebase interac
 ```
 Card/
 ├── assets/                           # 3D Models, Cards, Textures & MindAR Target Files
+│   ├── AR/                           # AR Billboard & Overlay Graphics
+│   │   ├── Booth.png                 # Left-side Shivam Jewels booth poster panel
+│   │   ├── shivam_banner.png         # Right-side Shivam Jewels invitation banner
+│   │   ├── shivam_diamond_dim.png    # Brand diamond icon
+│   │   ├── shivam_diamond_white.png  # White diamond icon
+│   │   └── shivam_logo.png           # Center-top transparent brand logo
+│   │
 │   ├── cards/                        # Invitation & Tracking Card Images
 │   │   ├── Company_f_view.png        # Official Company front card with ar.testsjit.in QR
 │   │   ├── Parth_f_view.png          # Development front card with card.shivamai.studio QR
@@ -66,10 +73,6 @@ Card/
 │   ├── qr/                           # QR Code Assets (with Quiet Zone White Border)
 │   │   ├── company_qr_code.png       # Official Company QR code pointing to ar.testsjit.in
 │   │   └── parth_qr_code.png         # Development QR code pointing to card.shivamai.studio
-│   │
-│   │   ├── Booth.png                 # Left-side Shivam Jewels booth poster panel
-│   │   ├── shivam_banner.png         # Right-side Shivam Jewels invitation banner
-│   │   └── shivam_logo.png           # Center-top transparent brand logo
 │   │
 │   └── targets.mind                  # MindAR compiled binary feature descriptors (532 KB)
 │
@@ -84,13 +87,12 @@ Card/
 │
 ├── scripts/                          # Utility & Backend Scripts
 │   ├── app.py                        # Flask backend with OpenCV & MindAR descriptor verification
-│   ├── generate_qr.py                # Python QR code generator utility
 │   ├── server.js                     # Node.js / Express static fallback server
 │   ├── package.json                  # Scripts package configuration
 │   └── requirements.txt              # Python package dependencies (Flask, OpenCV, MindAR)
 │
 ├── index.html                        # Main HTML5 entrypoint containing <a-scene> and UI modals
-├── serve.ps1                         # PowerShell LAN Web server for local mobile browser testing
+├── server.bat                        # Standalone LAN Web server for local mobile browser testing
 ├── package.json                      # Root npm configuration & script shortcuts
 └── README.md                         # Technical documentation & architecture guide
 ```
@@ -170,10 +172,10 @@ Below is the spatial layout configured inside `<a-scene>` in `index.html`:
 
 Because WebAR relies on mobile camera hardware and WebGL rendering, mobile browser testing is primary.
 
-### Launching Local PowerShell Server (Supports GLB & Mind MIME types)
-Run the built-in PowerShell dev server:
-```powershell
-.\serve.ps1 -Port 3000
+### Launching Local Server (Supports GLB & Mind MIME types)
+Run the built-in batch dev server:
+```cmd
+.\server.bat
 ```
 This serves the application on `http://localhost:3000` and displays your local Wi-Fi IP (e.g. `http://192.168.x.x:3000`) for access from your mobile phone connected to the same network.
 

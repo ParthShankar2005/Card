@@ -1,8 +1,17 @@
+@echo off
+setlocal
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((Get-Content -LiteralPath '%~f0' | Select-Object -Skip 6 | Out-String)))" %*
+goto :EOF
+
+# ==========================================================
+# Embedded WebAR Static HTTP Server
+# ==========================================================
 param (
     [int]$Port = 3000
 )
 
 $root = $PSScriptRoot
+if (-not $root) { $root = (Get-Location).Path }
 $listener = $null
 
 # Get local IP address for mobile phone testing
@@ -13,14 +22,12 @@ try {
     $listener.Prefixes.Add("http://localhost:$Port/")
     $listener.Prefixes.Add("http://127.0.0.1:$Port/")
     if ($localIP) {
-        # Try adding local network IP prefix
         try {
             $listener.Prefixes.Add("http://$($localIP):$Port/")
         } catch {}
     }
     $listener.Start()
 } catch {
-    # If adding multiple prefixes failed, retry with only localhost
     try {
         if ($listener) { $listener.Close() }
         $listener = New-Object System.Net.HttpListener
@@ -28,7 +35,7 @@ try {
         $listener.Start()
     } catch {
         Write-Host "`n[ERROR] Port $Port is already in use by another application." -ForegroundColor Red
-        Write-Host "You can specify a different port: .\serve.ps1 -Port 3001`n" -ForegroundColor Yellow
+        Write-Host "You can specify a different port: .\serve.bat -Port 3001`n" -ForegroundColor Yellow
         exit 1
     }
 }
@@ -36,10 +43,10 @@ try {
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "🚀 WebAR Local Dev Server Running" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " Local:   http://localhost:$Port/" -ForegroundColor White
+Write-Host " Local:     http://localhost:$Port/" -ForegroundColor White
 Write-Host " 127.0.0.1: http://127.0.0.1:$Port/" -ForegroundColor White
 if ($localIP) {
-    Write-Host " Network: http://$($localIP):$Port/ (Open on Mobile)" -ForegroundColor Yellow
+    Write-Host " Network:   http://$($localIP):$Port/ (Open on Mobile)" -ForegroundColor Yellow
 }
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "Press Ctrl+C to stop the server.`n" -ForegroundColor DarkGray
