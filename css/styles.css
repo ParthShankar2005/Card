@@ -1,23 +1,55 @@
-/* Transparent White Glassmorphism WebAR Experience Design System */
+/* ==========================================================================
+   Shivam Jewels WebAR Experience Design System
+   Brand Identity: Royal Sapphire Navy (#334b82), Deep Midnight (#060b17),
+   Diamond Ice (#82b2df), Champagne Gold (#c9a96e), and Luxury Glassmorphism
+   ========================================================================== */
+
 :root {
-  --bg-main: #070a14;
-  --glass-bg: rgba(255, 255, 255, 0.88);
-  --glass-bg-hover: rgba(255, 255, 255, 0.98);
-  --glass-border: rgba(255, 255, 255, 0.95);
-  --glass-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.28), 0 2px 8px 0 rgba(255, 255, 255, 0.4) inset;
-  --primary: #0284c7;
-  --primary-hover: #0369a1;
-  --accent: #2563eb;
-  --accent-glow: rgba(37, 99, 235, 0.35);
-  --success: #16a34a;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --text-main: #0f172a;
-  --text-muted: #334155;
-  --radius-lg: 20px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
-  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Shivam Jewels Brand Palette */
+  --sj-navy-primary: #334b82;
+  --sj-navy-primary-hover: #283b68;
+  --sj-navy-dark: #1b2a4a;
+  --sj-navy-deep: #121c33;
+  --sj-midnight-bg: #060b17;
+  
+  /* Diamond & Luxury Accents */
+  --sj-diamond-ice: #82b2df;
+  --sj-diamond-light: #cbe2f8;
+  --sj-diamond-glow: rgba(130, 178, 223, 0.35);
+  --sj-gold-accent: #c9a96e;
+  --sj-gold-light: #e4cc9f;
+  
+  /* Status Colors */
+  --sj-success: #10b981;
+  --sj-success-glow: rgba(16, 185, 129, 0.4);
+  --sj-warning: #f59e0b;
+  --sj-warning-glow: rgba(245, 158, 11, 0.4);
+  --sj-danger: #ef4444;
+  --sj-danger-glow: rgba(239, 68, 68, 0.4);
+  
+  /* Text Hierarchy */
+  --sj-text-main: #ffffff;
+  --sj-text-sub: #cbd5e1;
+  --sj-text-muted: #94a3b8;
+  --sj-text-navy: #334b82;
+  
+  /* Luxury Sapphire Glassmorphism */
+  --glass-bg: rgba(10, 18, 36, 0.85);
+  --glass-bg-card: rgba(14, 23, 44, 0.92);
+  --glass-bg-hover: rgba(18, 30, 58, 0.95);
+  --glass-border: rgba(130, 178, 223, 0.22);
+  --glass-border-hover: rgba(130, 178, 223, 0.45);
+  --glass-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(130, 178, 223, 0.12) inset;
+  
+  /* Radius & Typography */
+  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+  --font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Animation Timings */
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -33,9 +65,9 @@
 
 html, body {
   font-family: var(--font-family);
-  background: #070a14 !important;
-  background-color: #070a14 !important;
-  color: var(--text-main);
+  background: var(--sj-midnight-bg) !important;
+  background-color: var(--sj-midnight-bg) !important;
+  color: var(--sj-text-main);
   overflow: hidden;
   width: 100%;
   height: 100%;
@@ -43,6 +75,7 @@ html, body {
   position: fixed;
   inset: 0;
   touch-action: none;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Ensure video feed is properly layered behind canvas and visible */
@@ -50,6 +83,7 @@ video {
   position: absolute !important;
   z-index: 1 !important;
   pointer-events: none;
+  object-fit: cover;
 }
 
 /* A-Frame scene and WebGL Canvas layer */
@@ -97,31 +131,32 @@ a-scene {
   left: -9999px !important;
 }
 
-/* Transparent White Glassmorphism Panel Utility */
+/* Luxury Shivam Jewels Glassmorphism Panel Utility */
 .glass-panel {
   background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
   border-radius: var(--radius-lg);
-  color: var(--text-main);
+  color: var(--sj-text-main);
 }
 
-/* Bottom Floating Navigation & Status Bar */
+/* Bottom / Top Floating Navigation & Status Bar */
 #app-header {
   position: absolute;
-  bottom: 50px;
-  top: auto;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 20px;
+  gap: 16px;
+  padding: 10px 18px;
   width: min(92%, 520px);
   justify-content: space-between;
+  border-radius: var(--radius-pill);
+  transition: var(--transition-smooth);
 }
 
 .brand-badge {
@@ -129,14 +164,26 @@ a-scene {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: -0.01em;
-  color: var(--text-main);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sj-text-main);
 }
 
-.brand-badge i {
-  color: var(--primary);
-  font-size: 1.25rem;
+.brand-badge-logo {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+}
+
+.brand-badge-text {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, #ffffff 40%, var(--sj-diamond-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Status Pill Indicator */
@@ -145,52 +192,54 @@ a-scene {
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
   font-weight: 600;
-  background: rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  color: var(--text-main);
+  letter-spacing: 0.02em;
+  background: rgba(6, 11, 23, 0.6);
+  border: 1px solid var(--glass-border);
+  color: var(--sj-text-sub);
   transition: var(--transition-fast);
 }
 
 .status-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--warning);
-  box-shadow: 0 0 8px var(--warning);
-  animation: pulse-dot 1.5s infinite alternate;
+  background: var(--sj-warning);
+  box-shadow: 0 0 8px var(--sj-warning);
+  animation: pulse-dot 1.8s infinite alternate ease-in-out;
 }
 
 .status-pill.searching .status-dot {
-  background: var(--warning);
-  box-shadow: 0 0 10px var(--warning);
+  background: var(--sj-warning);
+  box-shadow: 0 0 10px var(--sj-warning-glow);
+}
+
+.status-pill.tracking {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #a7f3d0;
 }
 
 .status-pill.tracking .status-dot {
-  background: var(--success);
-  box-shadow: 0 0 12px var(--success);
-}
-
-.status-pill.orbit .status-dot {
-  background: var(--primary);
-  box-shadow: 0 0 10px var(--primary);
+  background: var(--sj-success);
+  box-shadow: 0 0 12px var(--sj-success-glow);
 }
 
 @keyframes pulse-dot {
-  0% { opacity: 0.4; transform: scale(0.9); }
-  100% { opacity: 1; transform: scale(1.2); }
+  0% { opacity: 0.45; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1.15); }
 }
 
-/* Camera Reticle & Translucent Target Overlay (1:1 Target Aspect Ratio) */
+/* Camera Reticle & Target Guide Overlay */
 #scanning-reticle {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(76vw, 280px);
-  height: min(76vw, 280px);
+  width: min(78vw, 290px);
+  height: min(78vw, 290px);
   aspect-ratio: 1 / 1;
   pointer-events: none;
   z-index: 50;
@@ -198,7 +247,7 @@ a-scene {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: var(--transition-smooth);
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 #scanning-reticle.hidden {
@@ -209,75 +258,104 @@ a-scene {
 
 .reticle-corner {
   position: absolute;
-  width: 36px;
-  height: 36px;
-  border: 4px solid var(--primary);
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--sj-diamond-ice);
+  box-shadow: 0 0 12px var(--sj-diamond-glow);
   transition: var(--transition-fast);
 }
 
-.reticle-top-left { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 12px 0 0 0; }
-.reticle-top-right { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 12px 0 0; }
-.reticle-bottom-left { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 12px; }
-.reticle-bottom-right { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 12px 0; }
+.reticle-top-left {
+  top: 0;
+  left: 0;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 12px 0 0 0;
+}
 
-/* Translucent Card Border Target Preview Overlay inside scanning frame */
+.reticle-top-right {
+  top: 0;
+  right: 0;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0 12px 0 0;
+}
+
+.reticle-bottom-left {
+  bottom: 0;
+  left: 0;
+  border-right: none;
+  border-top: none;
+  border-radius: 0 0 0 12px;
+}
+
+.reticle-bottom-right {
+  bottom: 0;
+  right: 0;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 12px 0;
+}
+
+/* Translucent Shivam Jewels Target Preview Overlay */
 .qr-target-preview-wrapper {
   width: 86%;
   height: 86%;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(6, 11, 23, 0.45);
   backdrop-filter: blur(4px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  border: 1px dashed rgba(56, 189, 248, 0.7);
-  animation: pulse-qr 2.5s infinite alternate ease-in-out;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px dashed rgba(130, 178, 223, 0.45);
+  animation: pulse-target 3s infinite alternate ease-in-out;
 }
 
 .qr-target-preview-img {
-  width: 92%;
-  height: 92%;
+  width: 90%;
+  height: 90%;
   object-fit: contain;
-  opacity: 0.88;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
-  border-radius: 8px;
+  opacity: 0.82;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.5));
 }
 
-@keyframes pulse-qr {
-  0% { opacity: 0.75; transform: scale(0.98); }
-  100% { opacity: 1; transform: scale(1.02); }
+@keyframes pulse-target {
+  0% { opacity: 0.7; transform: scale(0.98); }
+  100% { opacity: 0.95; transform: scale(1.02); }
 }
 
+/* Diamond Laser Scanline */
 .reticle-line {
   position: absolute;
   width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  animation: scan-beam 2.2s ease-in-out infinite alternate;
-  box-shadow: 0 0 12px var(--primary);
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--sj-diamond-light), var(--sj-diamond-ice), transparent);
+  box-shadow: 0 0 14px var(--sj-diamond-ice), 0 0 6px #ffffff;
+  animation: scan-beam 2.4s ease-in-out infinite alternate;
 }
 
 @keyframes scan-beam {
-  0% { top: 10%; opacity: 0.3; }
+  0% { top: 8%; opacity: 0.3; }
   50% { opacity: 1; }
-  100% { top: 90%; opacity: 0.3; }
+  100% { top: 92%; opacity: 0.3; }
 }
 
 .scanning-label {
   position: absolute;
-  bottom: -44px;
+  bottom: -50px;
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 0.85rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
   font-weight: 600;
-  color: var(--text-main);
+  letter-spacing: 0.02em;
+  color: var(--sj-text-main);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -285,117 +363,17 @@ a-scene {
 }
 
 .scanning-label i {
-  color: var(--primary);
-}
-
-/* Bottom Interactive Floating Control Toolbar */
-#control-bar {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: 36px;
-}
-
-.btn-icon {
-  background: rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  color: var(--text-main);
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.btn-icon:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: var(--primary);
-  transform: translateY(-2px);
-  color: var(--primary);
-}
-
-.btn-icon:active {
-  transform: scale(0.95);
-}
-
-.btn-icon.active {
-  background: var(--primary);
-  border-color: var(--glass-border);
-  color: white;
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35);
-}
-
-.btn-pill {
-  background: rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  color: var(--text-main);
-  padding: 10px 18px;
-  border-radius: 24px;
-  font-weight: 600;
+  color: var(--sj-diamond-ice);
   font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: var(--transition-fast);
 }
 
-.btn-pill:hover {
-  background: var(--glass-bg-hover);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.btn-pill:active {
-  transform: scale(0.96);
-}
-
-.btn-primary-lg {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  color: white;
-  border: none;
-  width: 100%;
-  justify-content: center;
-  padding: 14px 24px;
-  font-size: 1.05rem;
-  font-weight: 700;
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  transition: var(--transition-fast);
-}
-
-.btn-primary-lg:hover {
-  background: linear-gradient(135deg, var(--primary-hover), var(--primary));
-  color: white;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
-}
-
-.btn-primary-lg:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Modals & Guidance Card */
+/* Luxury Shivam Jewels Modal & Permission Guidance */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, #0f172a 0%, #070a14 100%);
+  background: radial-gradient(circle at center, rgba(18, 30, 58, 0.88) 0%, rgba(6, 11, 23, 0.96) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: 999;
   display: flex;
   align-items: center;
@@ -412,60 +390,98 @@ a-scene {
 }
 
 .modal-card {
-  width: min(92%, 440px);
-  padding: 32px 28px;
+  width: min(92%, 420px);
+  padding: 36px 28px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
+  background: var(--glass-bg-card);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(130, 178, 223, 0.15) inset;
+  border-radius: var(--radius-xl);
 }
 
-.modal-icon {
-  width: 68px;
-  height: 68px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+.modal-logo-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
-  color: white;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--sj-navy-primary), var(--sj-navy-dark));
+  border: 1px solid rgba(130, 178, 223, 0.35);
+  box-shadow: 0 8px 24px rgba(51, 75, 130, 0.45);
 }
 
-.modal-icon.error {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.35);
+.modal-logo-wrapper.error {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 8px 24px var(--sj-danger-glow);
+}
+
+.modal-logo-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.modal-logo-wrapper i {
+  font-size: 1.8rem;
+  color: #ffffff;
 }
 
 .modal-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--text-main);
+  letter-spacing: 0.02em;
+  color: var(--sj-text-main);
+  line-height: 1.3;
+}
+
+.modal-subtitle {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sj-gold-accent);
+  font-weight: 600;
+  margin-top: -12px;
 }
 
 .modal-desc {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  line-height: 1.55;
+  font-size: 0.92rem;
+  color: var(--sj-text-sub);
+  line-height: 1.6;
 }
 
 /* Camera Error Warning Box */
 .camera-error-box {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   text-align: left;
   font-size: 0.88rem;
-  color: #991b1b;
+  color: #fca5a5;
   display: none;
   width: 100%;
+  line-height: 1.5;
 }
 
 .camera-error-box.show {
   display: block;
+}
+
+.camera-steps-guide {
+  margin-top: 10px;
+  padding-left: 20px;
+  font-size: 0.82rem;
+  color: var(--sj-text-sub);
+}
+
+.camera-steps-guide li {
+  margin-bottom: 6px;
 }
 
 .modal-actions {
@@ -473,41 +489,83 @@ a-scene {
   gap: 12px;
   width: 100%;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
-/* 3D Orbit Canvas Fallback container */
-#orbit-canvas-container {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: none;
-  background: radial-gradient(circle at center, #f8fafc 0%, #e2e8f0 100%);
+/* Shivam Jewels Luxury Buttons */
+.btn-primary-lg {
+  background: linear-gradient(135deg, var(--sj-navy-primary) 0%, var(--sj-navy-dark) 100%);
+  color: #ffffff;
+  border: 1px solid rgba(130, 178, 223, 0.35);
+  width: 100%;
+  justify-content: center;
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(51, 75, 130, 0.45);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: var(--transition-fast);
 }
 
-#orbit-canvas-container.active {
-  display: block;
+.btn-primary-lg:hover {
+  background: linear-gradient(135deg, var(--sj-navy-primary-hover) 0%, var(--sj-navy-primary) 100%);
+  border-color: var(--sj-diamond-ice);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(51, 75, 130, 0.6);
+}
+
+.btn-primary-lg:active {
+  transform: scale(0.98);
+}
+
+.btn-primary-lg:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-pill {
+  border-radius: var(--radius-pill);
 }
 
 /* Responsive adjustments */
 @media (max-width: 480px) {
   #app-header {
-    bottom: 24px;
+    top: 14px;
     padding: 8px 14px;
-    font-size: 0.9rem;
+    width: 94%;
   }
 
   .brand-badge {
-    font-size: 0.95rem;
+    font-size: 0.88rem;
+    gap: 8px;
+  }
+
+  .brand-badge-logo {
+    height: 20px;
+  }
+
+  .status-pill {
+    font-size: 0.76rem;
+    padding: 5px 10px;
   }
 
   #scanning-reticle {
-    width: min(80vw, 260px);
-    height: min(80vw, 260px);
+    width: min(82vw, 270px);
+    height: min(82vw, 270px);
   }
 
-  .qr-target-preview-wrapper {
-    width: 86%;
-    height: 86%;
+  .modal-card {
+    padding: 28px 20px;
+    gap: 16px;
+  }
+
+  .modal-title {
+    font-size: 1.2rem;
   }
 }

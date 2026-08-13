@@ -2,18 +2,22 @@
  * WebAR Image Target Recognition & 3D Model Controller
  * Client: Shivam Jewels (ar.testsjit.in)
  * 
- * Target Image: assets/targets.png (1254x1254 compiled to assets/targets.mind)
  * Features:
  * - Direct image target recognition via MindAR
- * - Instant camera launch with iOS Safari playsinline & zero-white-screen fix
- * - Robust camera permission handling with user-friendly error recovery
- * - AudioContext auto-unlock on user gesture
- * - 3D model entrance animation & diamond material enhancements
+ * - Native browser camera permission flow with instant startup
+ * - Zero double-click bug fix (direct stream binding to AR engine)
+ * - Automatic camera launch for returning / granted users
+ * - Shivam Jewels luxury branded guidance for denied / blocked states
+ * - AudioContext auto-unlock on user gesture & feedback chimes
+ * - 3D model GLTF animation playback & diamond/platinum material shaders
  */
+
 (function () {
   'use strict';
 
-  // Register A-Frame Component to auto-play all embedded GLTF animation clips in sync with target detection
+  // ==========================================================================
+  // 1. A-FRAME GLTF ANIMATION CONTROLLER COMPONENT
+  // ==========================================================================
   if (typeof AFRAME !== 'undefined') {
     AFRAME.registerComponent('play-all-animations', {
       init: function () {
@@ -39,7 +43,7 @@
           }
         });
 
-        // Synchronize animation playback to only play when card target is visible
+        // Synchronize animation playback with target detection
         const targetEntity = document.getElementById('ar-target');
         if (targetEntity) {
           targetEntity.addEventListener('targetFound', () => {
@@ -74,7 +78,9 @@
     });
   }
 
-  // Synthesized Web Audio API Synthesizer for feedback chimes
+  // ==========================================================================
+  // 2. SYNTHESIZED WEB AUDIO API FEEDBACK CHIMES
+  // ==========================================================================
   let audioCtx = null;
 
   function getAudioContext() {
@@ -128,11 +134,17 @@
     }
   }
 
-  // Display helpful error message if camera permission fails
-  function showCameraError(msg) {
+  // ==========================================================================
+  // 3. CAMERA PERMISSION & SHIVAM JEWELS GUIDANCE MODAL
+  // ==========================================================================
+  let isARStarting = false;
+  let isARRunning = false;
+
+  function showCameraGuidance(title, desc, errorDetails, isBlocked) {
     const modalOverlay = document.getElementById('permission-modal');
     const modalIcon = document.getElementById('modal-icon');
     const modalTitle = document.getElementById('modal-title');
+    const modalDesc = document.getElementById('modal-desc');
     const errorBox = document.getElementById('camera-error');
     const btnStart = document.getElementById('btn-start-ar');
     const btnIcon = document.getElementById('btn-icon');
@@ -142,37 +154,58 @@
     if (reticle) reticle.classList.add('hidden');
 
     if (modalOverlay) {
-      modalOverlay.style.display = 'flex';
       modalOverlay.classList.remove('hidden');
+      modalOverlay.style.display = 'flex';
     }
-    if (modalIcon) modalIcon.className = 'modal-icon error';
-    if (modalTitle) modalTitle.textContent = 'Camera Access Required';
+
+    if (modalIcon) {
+      modalIcon.className = isBlocked ? 'modal-logo-wrapper error' : 'modal-logo-wrapper';
+      modalIcon.innerHTML = isBlocked ? '<i class="fas fa-lock"></i>' : '<i class="fas fa-camera"></i>';
+    }
+
+    if (modalTitle) modalTitle.textContent = title || 'Camera Access Required';
+    if (modalDesc) modalDesc.textContent = desc || 'Please allow camera access in your browser to experience Shivam Jewels WebAR.';
+
     if (errorBox) {
-      errorBox.innerHTML = `<strong><i class="fas fa-exclamation-triangle"></i> Notice:</strong><br>${msg}`;
-      errorBox.classList.add('show');
+      if (errorDetails) {
+        errorBox.innerHTML = `<strong><i class="fas fa-info-circle"></i> Instructions:</strong><br>${errorDetails}`;
+        errorBox.classList.add('show');
+      } else {
+        errorBox.classList.remove('show');
+      }
     }
+
     if (btnStart) {
       btnStart.disabled = false;
-      if (btnIcon) btnIcon.className = 'fas fa-redo';
-      if (btnText) btnText.textContent = 'Retry Camera Access';
+      if (btnIcon) btnIcon.className = isBlocked ? 'fas fa-redo' : 'fas fa-video';
+      if (btnText) btnText.textContent = isBlocked ? 'Retry Camera Access' : 'Enable Camera & Start AR';
     }
   }
 
-  // Camera Permission & Launch WebAR Button Click Handler
-  window.handleStartARClick = async function (e) {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+  function hideCameraGuidance() {
+    const modalOverlay = document.getElementById('permission-modal');
+    const reticle = document.getElementById('scanning-reticle');
 
-    unlockAudioContext();
-    playChime('tap');
+    if (modalOverlay) {
+      modalOverlay.classList.add('hidden');
+      modalOverlay.style.display = 'none';
+    }
+    if (reticle) {
+      reticle.classList.remove('hidden');
+      reticle.style.display = 'flex';
+    }
+  }
+
+  // ==========================================================================
+  // 4. SEAMLESS CAMERA & WEBAR INITIALIZATION (NO DOUBLE-CLICK)
+  // ==========================================================================
+  async function startARSession() {
+    if (isARRunning || isARStarting) return;
+    isARStarting = true;
 
     const btnStart = document.getElementById('btn-start-ar');
     const btnIcon = document.getElementById('btn-icon');
     const btnText = document.getElementById('btn-text');
-    const modalOverlay = document.getElementById('permission-modal');
-    const reticle = document.getElementById('scanning-reticle');
     const errorBox = document.getElementById('camera-error');
     const arScene = document.getElementById('ar-scene');
 
@@ -181,59 +214,155 @@
     if (btnText) btnText.textContent = 'Starting Camera...';
     if (errorBox) errorBox.classList.remove('show');
 
-    // Verify browser supports mediaDevices
+    // Ensure secure origin
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showCameraError(
-        'Your browser does not support camera access or the connection is not secure (HTTPS is required). Please open this site over HTTPS.'
+      isARStarting = false;
+      showCameraGuidance(
+        'HTTPS Connection Required',
+        'Camera access requires a secure HTTPS connection or supported modern browser.',
+        'Please open this site using HTTPS (e.g. https://ar.testsjit.in).',
+        true
       );
       return;
     }
 
-    try {
-      // Test camera permission directly
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: 'environment' }
-      });
-      // Stop the test stream immediately so MindAR can claim the device
-      stream.getTracks().forEach(t => t.stop());
-
-      // Hide modal & show scanning reticle
-      if (modalOverlay) {
-        modalOverlay.style.display = 'none';
-        modalOverlay.classList.add('hidden');
-      }
-      if (reticle) {
-        reticle.classList.remove('hidden');
-        reticle.style.display = 'flex';
-      }
-
-      // Start MindAR
-      if (arScene) {
-        const arSystem = arScene.systems && arScene.systems['mindar-image-system'];
-        if (arSystem) {
+    const launchMindAR = () => {
+      if (!arScene) return;
+      const arSystem = arScene.systems && arScene.systems['mindar-image-system'];
+      if (arSystem) {
+        try {
           arSystem.start();
-        } else {
-          arScene.addEventListener('renderstart', () => {
-            const sys = arScene.systems && arScene.systems['mindar-image-system'];
-            if (sys) sys.start();
-          }, { once: true });
+          hideCameraGuidance();
+          isARRunning = true;
+          isARStarting = false;
+        } catch (err) {
+          console.error("MindAR start error:", err);
+          handleCameraError(err);
         }
+      } else {
+        arScene.addEventListener('renderstart', () => {
+          const sys = arScene.systems && arScene.systems['mindar-image-system'];
+          if (sys) {
+            try {
+              sys.start();
+              hideCameraGuidance();
+              isARRunning = true;
+              isARStarting = false;
+            } catch (err) {
+              console.error("MindAR start error:", err);
+              handleCameraError(err);
+            }
+          }
+        }, { once: true });
       }
-    } catch (err) {
-      console.error("Camera access error:", err);
-      let message = 'Camera access could not be established.';
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        message = 'Camera permission was denied. Please allow camera access in your browser site settings and tap Retry.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        message = 'No camera device found on this device.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        message = 'Camera is in use by another app or browser tab. Please close other camera apps and retry.';
-      }
-      showCameraError(message);
+    };
+
+    if (arScene.hasLoaded || arScene.renderStarted) {
+      launchMindAR();
+    } else {
+      arScene.addEventListener('loaded', launchMindAR, { once: true });
     }
+  }
+
+  function handleCameraError(err) {
+    isARStarting = false;
+    isARRunning = false;
+    console.error("WebAR camera error:", err);
+
+    let title = 'Camera Access Required';
+    let desc = 'Shivam Jewels WebAR needs camera access to recognize the card tracking target.';
+    let guide = `
+      <ol class="camera-steps-guide">
+        <li>Tap the lock/settings icon in your browser address bar.</li>
+        <li>Ensure <strong>Camera</strong> is set to <strong>Allow</strong>.</li>
+        <li>Tap <strong>Retry Camera Access</strong> below.</li>
+      </ol>
+    `;
+
+    if (err && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError')) {
+      title = 'No Camera Detected';
+      desc = 'No suitable camera hardware was detected on this device.';
+      guide = 'Please open this link on a mobile smartphone with a working rear camera.';
+    } else if (err && (err.name === 'NotReadableError' || err.name === 'TrackStartError')) {
+      title = 'Camera In Use';
+      desc = 'The camera is currently being used by another application or browser tab.';
+      guide = 'Please close any background camera apps or tabs and tap Retry.';
+    }
+
+    showCameraGuidance(title, desc, guide, true);
+  }
+
+  // Button handler for user-initiated camera launch / retry
+  window.handleStartARClick = async function (e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    unlockAudioContext();
+    playChime('tap');
+    startARSession();
   };
 
+  // ==========================================================================
+  // 5. PERMISSION STATE QUERY & AUTOMATIC STARTUP
+  // ==========================================================================
+  async function checkPermissionsAndAutoStart() {
+    unlockAudioContext();
+
+    // Catch MindAR arError events cleanly
+    const arScene = document.getElementById('ar-scene');
+    if (arScene) {
+      arScene.addEventListener('arError', (event) => {
+        console.warn("MindAR reported arError:", event.detail);
+        handleCameraError({ name: 'NotAllowedError', message: 'Camera permission denied or stream failed' });
+      });
+
+      // When MindAR stream is ready and tracking begins
+      arScene.addEventListener('arReady', () => {
+        console.log("Shivam Jewels WebAR stream ready.");
+        hideCameraGuidance();
+        isARRunning = true;
+        isARStarting = false;
+      });
+    }
+
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+        console.log("[Permissions API] Camera state:", permissionStatus.state);
+
+        if (permissionStatus.state === 'granted') {
+          // Camera already permitted -> Start automatically with zero clicks/modals
+          startARSession();
+        } else if (permissionStatus.state === 'prompt') {
+          // First visit / Prompt -> Launch directly so the browser shows native prompt
+          startARSession();
+        } else if (permissionStatus.state === 'denied') {
+          // Blocked -> Show guidance
+          handleCameraError({ name: 'NotAllowedError' });
+        }
+
+        // Listen for permission changes (e.g. user toggles in site settings)
+        permissionStatus.onchange = () => {
+          console.log("[Permissions API] Camera permission changed to:", permissionStatus.state);
+          if (permissionStatus.state === 'granted' && !isARRunning) {
+            startARSession();
+          }
+        };
+        return;
+      } catch (e) {
+        console.log("[Permissions API] Query unsupported, falling back to direct launch:", e);
+      }
+    }
+
+    // Fallback for iOS Safari / browsers without navigator.permissions.query({ name: 'camera' })
+    // Directly attempt camera start to trigger browser's native permission prompt
+    startARSession();
+  }
+
+  // ==========================================================================
+  // 6. MAIN APPLICATION INITIALIZATION
+  // ==========================================================================
   function initApp() {
     const targetEntity = document.getElementById('ar-target');
     const statusPill = document.getElementById('status-pill');
@@ -242,7 +371,7 @@
     const arWrapper = document.getElementById('ar-content-wrapper');
     const arScene = document.getElementById('ar-scene');
 
-    // Eliminate white/black screen: Set WebGL canvas clear color to 100% transparent
+    // Transparent WebGL canvas: Prevents white/black screen flicker
     if (arScene) {
       const makeCanvasTransparent = () => {
         if (arScene.renderer) {
@@ -256,29 +385,20 @@
       } else {
         arScene.addEventListener('renderstart', makeCanvasTransparent, { once: true });
       }
-
-      // Catch MindAR internal errors
-      arScene.addEventListener('arError', (event) => {
-        console.error("MindAR arError:", event.detail);
-        showCameraError("WebAR tracking encountered an issue starting the video stream.");
-      });
     }
 
-    // Purge any A-Frame VR / AR buttons from DOM
+    // Remove any A-Frame default VR / AR UI buttons
     const removeVRUI = () => {
       const vrElements = document.querySelectorAll(
         '.a-enter-vr, .a-enter-vr-button, .a-enter-ar, .a-enter-ar-button, .a-orientation-modal, [data-a-enter-vr-button]'
       );
       vrElements.forEach((el) => {
-        if (el && el.parentNode) {
-          el.parentNode.removeChild(el);
-        }
+        if (el && el.parentNode) el.parentNode.removeChild(el);
       });
     };
-
     removeVRUI();
 
-    // Fix iOS video playback attributes & instantly remove injected VR buttons
+    // iOS Safari video attributes & UI cleanup observer
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
@@ -306,46 +426,34 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    if (arScene) {
-      arScene.addEventListener('renderstart', () => {
-        removeVRUI();
-        if (arScene.renderer) {
-          arScene.renderer.setClearColor(0x000000, 0);
-          arScene.renderer.alpha = true;
-        }
-      });
-    }
-
     // Target Recognition Events
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
         if (statusPill) statusPill.className = 'status-pill tracking';
-        if (statusText) statusText.textContent = '✅ Shivam Jewels Card Recognized (3D Model Active)';
+        if (statusText) statusText.textContent = '✨ Card Recognized';
         if (reticle) reticle.classList.add('hidden');
         playChime('success');
 
         if (arWrapper) {
           arWrapper.setAttribute('visible', 'true');
           if (arWrapper.object3D) arWrapper.object3D.visible = true;
-          // Trigger the A-Frame pop-up zoom-in animation
           arWrapper.emit('targetFound');
         }
       });
 
       targetEntity.addEventListener('targetLost', () => {
         if (statusPill) statusPill.className = 'status-pill searching';
-        if (statusText) statusText.textContent = 'Scanning for Shivam Jewels Card Target...';
+        if (statusText) statusText.textContent = 'Scanning Target...';
         if (reticle) reticle.classList.remove('hidden');
 
         if (arWrapper) {
           arWrapper.setAttribute('visible', 'false');
           if (arWrapper.object3D) arWrapper.object3D.visible = false;
-          // Reset the scale back to 0 0 0 for next recognition
           arWrapper.setAttribute('scale', '0 0 0');
         }
       });
 
-      // Material Enhancer for 3D Models (Diamond, Platinum & Avatar Shading)
+      // Material Enhancer for 3D Diamond & Platinum Models
       const enhanceModelMaterials = (entity) => {
         if (!entity) return;
         const applyEnhancement = () => {
@@ -381,13 +489,16 @@
 
       enhanceModelMaterials(document.getElementById('ring-model-entity'));
       enhanceModelMaterials(document.getElementById('shivam-model-entity'));
-      enhanceModelMaterials(document.getElementById('3d-model-entity'));
     }
 
+    // Attach click handler on start button
     const btnStartAr = document.getElementById('btn-start-ar');
     if (btnStartAr) {
       btnStartAr.onclick = window.handleStartARClick;
     }
+
+    // Automatic Camera Launch
+    checkPermissionsAndAutoStart();
   }
 
   if (document.readyState === 'loading') {

@@ -6,22 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Shivam Jewels | 3D WebAR Experience</title>
   <meta name="description"
-    content="100% free app-less WebAR experience powered by MindAR.js and A-Frame for Shivam Jewels." />
+    content="Official WebAR experience powered by MindAR and Three.js for Shivam Jewels." />
 
   <!-- OpenGraph -->
   <meta property="og:title" content="Shivam Jewels | 3D WebAR Experience" />
   <meta property="og:description"
-    content="Scan the tracking target to launch interactive 3D WebAR directly in your mobile browser." />
+    content="Scan the Shivam Jewels card to launch interactive 3D WebAR directly in your mobile browser." />
   <meta property="og:url" content="https://ar.testsjit.in" />
 
   <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="./css/styles.css?v=1.0.2" />
+  <link rel="stylesheet" href="./css/styles.css?v=2.0.0" />
 
   <!-- A-Frame Library (v1.5.0) -->
   <script src="./js/aframe.min.js"></script>
@@ -30,7 +30,7 @@
   <script src="./js/mindar-image-aframe.prod.js"></script>
 
   <!-- Application Controller Script -->
-  <script src="./js/app.js?v=1.0.4" defer></script>
+  <script src="./js/app.js?v=2.0.0" defer></script>
 </head>
 
 <body>
@@ -38,8 +38,8 @@
   <!-- Top Glassmorphic Navigation & Status Bar -->
   <header id="app-header" class="glass-panel">
     <div class="brand-badge">
-      <i class="fas fa-gem" style="color: #38bdf8;"></i>
-      <span>Shivam Jewels</span>
+      <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
+      <span class="brand-badge-text">Shivam Jewels</span>
     </div>
     <div id="status-pill" class="status-pill searching">
       <div class="status-dot"></div>
@@ -48,7 +48,7 @@
   </header>
 
   <!-- Camera Reticle & Translucent Target Overlay -->
-  <div id="scanning-reticle" class="hidden">
+  <div id="scanning-reticle">
     <div class="reticle-corner reticle-top-left"></div>
     <div class="reticle-corner reticle-top-right"></div>
     <div class="reticle-corner reticle-bottom-left"></div>
@@ -61,7 +61,7 @@
 
     <div class="reticle-line"></div>
     <div class="scanning-label">
-      <i class="fas fa-camera"></i> Point Camera at Shivam Jewels Card Target
+      <i class="fas fa-gem"></i> Point Camera at Shivam Jewels Card Target
     </div>
   </div>
 
@@ -94,7 +94,7 @@
       <!-- Multi-Angle Lighting for Maximum Gem Reflection & Visibility -->
       <a-entity light="type: ambient; color: #ffffff; intensity: 3.0"></a-entity>
       <a-entity light="type: directional; color: #ffffff; intensity: 3.8" position="1 3 4"></a-entity>
-      <a-entity light="type: directional; color: #38bdf8; intensity: 2.2" position="-2 1 3"></a-entity>
+      <a-entity light="type: directional; color: #82b2df; intensity: 2.2" position="-2 1 3"></a-entity>
       <a-entity light="type: point; color: #ffffff; intensity: 3.5; distance: 6" position="0 0.5 1"></a-entity>
 
       <!-- Wrapped 3D Experience Content -->
@@ -134,23 +134,24 @@
     </a-entity>
   </a-scene>
 
-  <!-- Camera Permission & Welcome Modal -->
-  <div id="permission-modal" class="modal-overlay">
-    <div class="modal-card glass-panel">
-      <div id="modal-icon" class="modal-icon">
-        <i class="fas fa-gem"></i>
+  <!-- Camera Permission & Guidance Modal (Shown only when permission requires action or was denied) -->
+  <div id="permission-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div id="modal-icon" class="modal-logo-wrapper">
+        <i class="fas fa-camera"></i>
       </div>
-      <h2 id="modal-title" class="modal-title">Shivam Jewels WebAR</h2>
+      <h2 id="modal-title" class="modal-title">Camera Access Required</h2>
+      <p class="modal-subtitle">Shivam Jewels WebAR</p>
       <p id="modal-desc" class="modal-desc">
-        Point your mobile camera at the Shivam Jewels card target to launch the interactive 3D WebAR showcase.
+        Please allow camera access in your browser to experience the Shivam Jewels interactive 3D WebAR showcase.
       </p>
 
-      <!-- Dynamic Camera Error Alert Box -->
+      <!-- Dynamic Camera Error & Site Settings Guide Box -->
       <div id="camera-error" class="camera-error-box"></div>
 
       <div class="modal-actions">
-        <button id="btn-start-ar" class="btn-pill btn-primary-lg" onclick="handleStartARClick(event)">
-          <i class="fas fa-video" id="btn-icon"></i> <span id="btn-text">Allow Camera & Start WebAR</span>
+        <button id="btn-start-ar" class="btn-primary-lg" onclick="handleStartARClick(event)">
+          <i class="fas fa-video" id="btn-icon"></i> <span id="btn-text">Enable Camera & Start WebAR</span>
         </button>
       </div>
     </div>
