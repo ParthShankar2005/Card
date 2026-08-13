@@ -1,5 +1,6 @@
 /* ==========================================================================
    Shivam Jewels WebAR Experience Design System
+   Version: 1.0.2
    Brand Identity: Royal Sapphire Navy (#334b82), Deep Midnight (#060b17),
    Diamond Ice (#82b2df), Champagne Gold (#c9a96e), and Luxury Glassmorphism
    ========================================================================== */
@@ -141,21 +142,6 @@ html, body {
   background: url('../assets/AR/shivam_diamond_white.png') center / contain no-repeat;
   clip-path: inset(calc(100% - var(--loading-progress, 0%)) 0 0 0);
   transition: clip-path 0.05s linear;
-}
-
-.loading-percentage {
-  margin-top: 24px;
-  font-family: var(--font-family);
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
-  color: #ffffff;
-  width: 100%;
-  text-align: center;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 /* Ensure video feed is properly layered behind canvas and visible */
@@ -378,7 +364,7 @@ a-scene {
   background: rgba(6, 11, 23, 0.45);
   backdrop-filter: blur(4px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  border: 1px dashed rgba(130, 178, 223, 0.45);
+  border: 1px solid rgba(130, 178, 223, 0.35);
   animation: pulse-target 3s infinite alternate ease-in-out;
 }
 

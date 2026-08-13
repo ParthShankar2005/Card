@@ -1,9 +1,11 @@
 /**
  * WebAR Image Target Recognition & 3D Model Controller
  * Client: Shivam Jewels (ar.testsjit.in)
+ * Version: 1.0.2
  * 
  * Features:
  * - Direct image target recognition via MindAR
+ * - 13s Game-like staged diamond loading animation (10% -> 40% -> 55% -> 80% -> 95% -> 100%)
  * - Native browser camera permission flow with instant startup
  * - Zero double-click bug fix (direct stream binding to AR engine)
  * - Automatic camera launch for returning / granted users
@@ -304,51 +306,78 @@
   };
 
   // ==========================================================================
-  // 5. LUXURY SHIVAM JEWELS DIAMOND LOADING SCREEN CONTROLLER
+  // 5. LUXURY SHIVAM JEWELS DIAMOND LOADING SCREEN CONTROLLER (v1.0.2)
   // ==========================================================================
   function setupLoadingScreen(onComplete) {
     const loadingScreen = document.getElementById('loading-screen');
     const diamondFill = document.getElementById('diamond-fill');
-    const percentageText = document.getElementById('loading-percentage');
 
     if (!loadingScreen) {
       if (typeof onComplete === 'function') onComplete();
       return;
     }
 
-    let currentProgress = 0;
     let isFinished = false;
 
     const updateUI = (progress) => {
-      const pct = Math.min(100, Math.max(0, Math.floor(progress)));
-      if (percentageText) percentageText.textContent = `${pct}%`;
+      const pct = Math.min(100, Math.max(0, progress));
       if (diamondFill) {
         diamondFill.style.setProperty('--loading-progress', `${pct}%`);
       }
     };
 
     const startTime = performance.now();
-    const duration = 3000; // 3.0 seconds duration as requested
+    const duration = 13000; // ~13.0 seconds staged game-like loading duration
+
+    // Keyframes for authentic game-like staged progression:
+    // 10% stuck -> 40% stuck -> 55% stuck -> 80% stuck -> 95% stuck -> direct snap to 100% & open
+    const checkpoints = [
+      { t: 0.00, p: 0 },
+      { t: 0.06, p: 10 },  // 0.8s: Reach 10%
+      { t: 0.20, p: 10 },  // 2.6s: Stuck at 10%
+      { t: 0.28, p: 40 },  // 3.6s: Reach 40%
+      { t: 0.42, p: 40 },  // 5.5s: Stuck at 40%
+      { t: 0.49, p: 55 },  // 6.4s: Reach 55%
+      { t: 0.61, p: 55 },  // 7.9s: Stuck at 55%
+      { t: 0.69, p: 80 },  // 9.0s: Reach 80%
+      { t: 0.80, p: 80 },  // 10.4s: Stuck at 80%
+      { t: 0.86, p: 95 },  // 11.2s: Reach 95%
+      { t: 0.95, p: 95 },  // 12.3s: Stuck at 95%
+      { t: 0.97, p: 100 }, // 12.6s: Direct jump to 100%
+      { t: 1.00, p: 100 }  // 13.0s: Complete & Open
+    ];
+
+    function calculateProgress(ratio) {
+      if (ratio <= 0) return 0;
+      if (ratio >= 1) return 100;
+      for (let i = 0; i < checkpoints.length - 1; i++) {
+        const c1 = checkpoints[i];
+        const c2 = checkpoints[i + 1];
+        if (ratio >= c1.t && ratio <= c2.t) {
+          if (c1.p === c2.p) return c1.p;
+          const localRatio = (ratio - c1.t) / (c2.t - c1.t);
+          // Smooth cubic ease between checkpoints
+          const ease = localRatio < 0.5
+            ? 2 * localRatio * localRatio
+            : 1 - Math.pow(-2 * localRatio + 2, 2) / 2;
+          return c1.p + (c2.p - c1.p) * ease;
+        }
+      }
+      return 100;
+    }
 
     function animateProgress(now) {
       const elapsed = now - startTime;
       const timeRatio = Math.min(1, elapsed / duration);
 
-      // Smooth progression from 0 to 100%
-      const target = timeRatio * 100;
-      currentProgress += (target - currentProgress) * 0.25;
-
-      if (Math.abs(target - currentProgress) < 0.2) {
-        currentProgress = target;
-      }
-
-      updateUI(currentProgress);
+      const targetProgress = calculateProgress(timeRatio);
+      updateUI(targetProgress);
 
       if (timeRatio >= 1 && !isFinished) {
         isFinished = true;
         updateUI(100);
 
-        // Hold cleanly at 100% for 200ms before fading out (no glow effect)
+        // Smoothly fade out the loading screen and transition directly into AR
         setTimeout(() => {
           loadingScreen.classList.add('fade-out');
 
@@ -361,7 +390,7 @@
           setTimeout(() => {
             loadingScreen.style.display = 'none';
           }, 550);
-        }, 220);
+        }, 200);
         return;
       }
 
