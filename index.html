@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Shivam Jewels | 3D WebAR Experience</title>
-  <meta name="description" content="Official WebAR experience powered by MindAR and Three.js for Shivam Jewels." />
+  <meta name="description" content="Official WebAR experience for Shivam Jewels." />
 
   <!-- OpenGraph -->
   <meta property="og:title" content="Shivam Jewels | 3D WebAR Experience" />
@@ -16,11 +16,13 @@
   <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Cinzel:wght@500;600;700&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="./css/styles.css?v=1.0.2" />
+  <link rel="stylesheet" href="./css/styles.css?v=2.0.0" />
 
   <!-- A-Frame Library (v1.5.0) -->
   <script src="./js/aframe.min.js"></script>
@@ -29,12 +31,14 @@
   <script src="./js/mindar-image-aframe.prod.js"></script>
 
   <!-- Application Controller Script -->
-  <script src="./js/app.js?v=1.0.2" defer></script>
+  <script src="./js/app.js?v=2.0.0" defer></script>
 </head>
 
 <body>
 
-  <!-- Fullscreen Luxury Shivam Jewels Diamond Loading Screen -->
+  <!-- ==========================================================================
+       1. SHIVAM JEWELS DIAMOND LOADING SCREEN
+       ========================================================================== -->
   <div id="loading-screen" class="loading-screen">
     <div class="loading-content">
       <div class="loading-diamond-wrapper">
@@ -44,40 +48,44 @@
     </div>
   </div>
 
-  <!-- Top Glassmorphic Navigation & Status Bar -->
-  <header id="app-header" class="glass-panel">
-    <div class="brand-badge">
-      <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
-    </div>
+  <!-- ==========================================================================
+       2. TOP BAR
+       ========================================================================== -->
+  <header id="app-header">
+    <!-- Status Pill Indicator (Left) -->
     <div id="status-pill" class="status-pill searching">
       <div class="status-dot"></div>
       <span id="status-text">Scan SJ Card</span>
     </div>
+
+    <!-- Brand Logo (Right Corner, Pure White) -->
+    <div class="brand-badge">
+      <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
+    </div>
   </header>
 
-  <!-- Camera Reticle & Translucent Target Overlay -->
+  <!-- ==========================================================================
+       3. AR SCANNING RETICLE & TARGET GUIDANCE
+       ========================================================================== -->
   <div id="scanning-reticle">
-    <div class="reticle-corner reticle-top-left"></div>
-    <div class="reticle-corner reticle-top-right"></div>
-    <div class="reticle-corner reticle-bottom-left"></div>
-    <div class="reticle-corner reticle-bottom-right"></div>
-
     <!-- Transparent Shivam Jewels Full Invitation Card Target Preview -->
     <div class="qr-target-preview-wrapper">
       <img src="./assets/cards/targets.png" alt="Shivam Jewels Card Preview" class="qr-target-preview-img" />
     </div>
 
-    <div class="reticle-line"></div>
+    <!-- Single Clean Helper Text -->
     <div class="scanning-label">
-      <i class="fas fa-camera"></i> Point camera to scan SJ card
+      Point camera at Shivam Jewels card
     </div>
   </div>
 
-  <!-- Main WebAR Scene Container -->
+  <!-- ==========================================================================
+       4. MAIN WEBAR A-FRAME SCENE CONTAINER
+       ========================================================================== -->
   <a-scene id="ar-scene"
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 12;"
     color-space="sRGB"
-    renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.25; alpha: true; sortTransparentObjects: true;"
+    renderer="colorManagement: true; physicallyCorrectLights: true; exposure: 1.35; alpha: true; sortTransparentObjects: true; antialias: true;"
     vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" embedded>
 
     <a-assets>
@@ -96,7 +104,9 @@
     <!-- Camera setup -->
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <!-- Target 0: Image Target tracking anchor -->
+    <!-- ========================================================================
+         AR EXPERIENCE TARGET (MINDAR IMAGE TRACKED)
+         ======================================================================== -->
     <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
 
       <!-- Multi-Angle Lighting for Maximum Gem Reflection & Visibility -->
@@ -140,16 +150,19 @@
       </a-entity>
 
     </a-entity>
+
   </a-scene>
 
-  <!-- Camera Permission & Guidance Modal (Shown only when permission requires action or was denied) -->
+  <!-- ==========================================================================
+       5. CAMERA PERMISSION & GUIDANCE MODAL (AR MODE)
+       ========================================================================== -->
   <div id="permission-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div id="modal-icon" class="modal-logo-wrapper">
         <i class="fas fa-camera"></i>
       </div>
       <h2 id="modal-title" class="modal-title">Camera Access Needed</h2>
-      <p class="modal-subtitle">Shivam Jewels</p>
+      <p class="modal-subtitle">Shivam Jewels AR</p>
       <p id="modal-desc" class="modal-desc">
         Camera permission is needed to scan the SJ card and view the AR experience.
       </p>

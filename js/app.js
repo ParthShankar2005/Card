@@ -1,24 +1,31 @@
 /**
- * WebAR Image Target Recognition & 3D Model Controller
+ * Shivam Jewels — Interactive WebAR Experience
  * Client: Shivam Jewels (ar.testsjit.in)
- * Version: 1.0.2
+ * Version: 2.0.0
  * 
  * Features:
- * - Direct image target recognition via MindAR
+ * - Direct WebAR Experience with MindAR image target tracking
  * - 13s Game-like staged diamond loading animation (10% -> 40% -> 55% -> 80% -> 95% -> 100%)
- * - Native browser camera permission flow with instant startup
- * - Zero double-click bug fix (direct stream binding to AR engine)
- * - Automatic camera launch for returning / granted users
- * - Shivam Jewels luxury branded guidance for denied / blocked states
- * - AudioContext auto-unlock on user gesture & feedback chimes
- * - 3D model GLTF animation playback & diamond/platinum material shaders
+ * - Reticle target frame HUD
+ * - Native browser camera permission flow & zero double-click direct launch
+ * - Enhanced PBR diamond & platinum material shaders on GLTF models
  */
 
 (function () {
   'use strict';
 
   // ==========================================================================
-  // 1. A-FRAME GLTF ANIMATION CONTROLLER COMPONENT
+  // 1. APPLICATION CONSTANTS & STATE MANAGEMENT
+  // ==========================================================================
+  const MODES = {
+    LOADING: 'LOADING',
+    AR: 'AR'
+  };
+
+  let currentMode = MODES.LOADING;
+
+  // ==========================================================================
+  // 2. A-FRAME GLTF ANIMATION CONTROLLER COMPONENT
   // ==========================================================================
   if (typeof AFRAME !== 'undefined') {
     AFRAME.registerComponent('play-all-animations', {
@@ -34,7 +41,6 @@
             (model && model.animations) || [];
 
           if (model && animations && animations.length > 0) {
-            console.log(`[GLTF Animation] Ready with ${animations.length} embedded animation tracks.`);
             this.mixer = new THREE.AnimationMixer(model);
             this.actions = animations.map((clip) => {
               const action = this.mixer.clipAction(clip);
@@ -42,23 +48,23 @@
               action.clampWhenFinished = false;
               return action;
             });
+            this.playAnimations();
           }
         });
 
-        // Synchronize animation playback with target detection
+        // Synchronize AR animation playback with image target detection
         const targetEntity = document.getElementById('ar-target');
         if (targetEntity) {
           targetEntity.addEventListener('targetFound', () => {
-            this.playAnimations();
+            if (currentMode === MODES.AR) this.playAnimations();
           });
           targetEntity.addEventListener('targetLost', () => {
-            this.pauseAnimations();
+            if (currentMode === MODES.AR) this.pauseAnimations();
           });
         }
       },
       playAnimations: function () {
         if (!this.mixer || this.actions.length === 0) return;
-        this.mixer.setTime(0);
         this.actions.forEach((action) => {
           action.reset();
           action.play();
@@ -81,63 +87,7 @@
   }
 
   // ==========================================================================
-  // 2. SYNTHESIZED WEB AUDIO API FEEDBACK CHIMES
-  // ==========================================================================
-  let audioCtx = null;
-
-  function getAudioContext() {
-    if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    return audioCtx;
-  }
-
-  function unlockAudioContext() {
-    try {
-      const ctx = getAudioContext();
-      if (ctx && ctx.state === 'suspended') {
-        ctx.resume().catch(() => { });
-      }
-    } catch (e) {
-      console.warn("AudioContext resume error:", e);
-    }
-  }
-
-  function playChime(type) {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    try {
-      if (ctx.state === 'suspended') ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      const now = ctx.currentTime;
-      if (type === 'success') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-      } else if (type === 'tap') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(800, now);
-        osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-        osc.start(now);
-        osc.stop(now + 0.06);
-      }
-    } catch (e) {
-      console.warn("Audio chime error:", e);
-    }
-  }
-
-  // ==========================================================================
-  // 3. CAMERA PERMISSION & SHIVAM JEWELS GUIDANCE MODAL
+  // 3. CAMERA PERMISSION & GUIDANCE MODAL (AR MODE)
   // ==========================================================================
   let isARStarting = false;
   let isARRunning = false;
@@ -192,15 +142,12 @@
       modalOverlay.classList.add('hidden');
       modalOverlay.style.display = 'none';
     }
-    if (reticle) {
+    if (reticle && currentMode === MODES.AR) {
       reticle.classList.remove('hidden');
       reticle.style.display = 'flex';
     }
   }
 
-  // ==========================================================================
-  // 4. SEAMLESS CAMERA & WEBAR INITIALIZATION (NO DOUBLE-CLICK)
-  // ==========================================================================
   async function startARSession() {
     if (isARRunning || isARStarting) return;
     isARStarting = true;
@@ -216,7 +163,6 @@
     if (btnText) btnText.textContent = 'Opening Camera...';
     if (errorBox) errorBox.classList.remove('show');
 
-    // Ensure secure origin
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       isARStarting = false;
       showCameraGuidance(
@@ -266,6 +212,34 @@
     }
   }
 
+  function stopARSession() {
+    const arScene = document.getElementById('ar-scene');
+    if (arScene && arScene.systems && arScene.systems['mindar-image-system']) {
+      try {
+        const arSystem = arScene.systems['mindar-image-system'];
+        if (arSystem && isARRunning) {
+          arSystem.stop();
+        }
+      } catch (e) {
+        console.warn("Error stopping MindAR session:", e);
+      }
+    }
+    isARRunning = false;
+    isARStarting = false;
+
+    // Hide any AR video feeds
+    const videos = document.querySelectorAll('video');
+    videos.forEach((v) => {
+      if (v && v.srcObject) {
+        try {
+          const tracks = v.srcObject.getTracks();
+          tracks.forEach(track => track.stop());
+        } catch (e) { }
+      }
+      v.style.display = 'none';
+    });
+  }
+
   function handleCameraError(err) {
     isARStarting = false;
     isARRunning = false;
@@ -294,19 +268,16 @@
     showCameraGuidance(title, desc, guide, true);
   }
 
-  // Button handler for user-initiated camera launch / retry
   window.handleStartARClick = async function (e) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    unlockAudioContext();
-    playChime('tap');
     startARSession();
   };
 
   // ==========================================================================
-  // 5. LUXURY SHIVAM JEWELS DIAMOND LOADING SCREEN CONTROLLER (v1.0.2)
+  // 4. DIAMOND LOADING SCREEN CONTROLLER
   // ==========================================================================
   function setupLoadingScreen(onComplete) {
     const loadingScreen = document.getElementById('loading-screen');
@@ -329,22 +300,20 @@
     const startTime = performance.now();
     const duration = 13000; // ~13.0 seconds staged game-like loading duration
 
-    // Keyframes for authentic game-like staged progression:
-    // 10% stuck -> 40% stuck -> 55% stuck -> 80% stuck -> 95% stuck -> direct snap to 100% & open
     const checkpoints = [
       { t: 0.00, p: 0 },
-      { t: 0.06, p: 10 },  // 0.8s: Reach 10%
-      { t: 0.20, p: 10 },  // 2.6s: Stuck at 10%
-      { t: 0.28, p: 40 },  // 3.6s: Reach 40%
-      { t: 0.42, p: 40 },  // 5.5s: Stuck at 40%
-      { t: 0.49, p: 55 },  // 6.4s: Reach 55%
-      { t: 0.61, p: 55 },  // 7.9s: Stuck at 55%
-      { t: 0.69, p: 80 },  // 9.0s: Reach 80%
-      { t: 0.80, p: 80 },  // 10.4s: Stuck at 80%
-      { t: 0.86, p: 95 },  // 11.2s: Reach 95%
-      { t: 0.95, p: 95 },  // 12.3s: Stuck at 95%
-      { t: 0.97, p: 100 }, // 12.6s: Direct jump to 100%
-      { t: 1.00, p: 100 }  // 13.0s: Complete & Open
+      { t: 0.06, p: 10 },
+      { t: 0.20, p: 10 },
+      { t: 0.28, p: 40 },
+      { t: 0.42, p: 40 },
+      { t: 0.49, p: 55 },
+      { t: 0.61, p: 55 },
+      { t: 0.69, p: 80 },
+      { t: 0.80, p: 80 },
+      { t: 0.86, p: 95 },
+      { t: 0.95, p: 95 },
+      { t: 0.97, p: 100 },
+      { t: 1.00, p: 100 }
     ];
 
     function calculateProgress(ratio) {
@@ -356,7 +325,6 @@
         if (ratio >= c1.t && ratio <= c2.t) {
           if (c1.p === c2.p) return c1.p;
           const localRatio = (ratio - c1.t) / (c2.t - c1.t);
-          // Smooth cubic ease between checkpoints
           const ease = localRatio < 0.5
             ? 2 * localRatio * localRatio
             : 1 - Math.pow(-2 * localRatio + 2, 2) / 2;
@@ -377,16 +345,13 @@
         isFinished = true;
         updateUI(100);
 
-        // Smoothly fade out the loading screen and transition directly into AR
         setTimeout(() => {
           loadingScreen.classList.add('fade-out');
 
-          // Trigger camera start simultaneously
           if (typeof onComplete === 'function') {
             onComplete();
           }
 
-          // Clean up DOM after fade transition completes
           setTimeout(() => {
             loadingScreen.style.display = 'none';
           }, 550);
@@ -401,64 +366,7 @@
   }
 
   // ==========================================================================
-  // 6. PERMISSION STATE QUERY & AUTOMATIC STARTUP
-  // ==========================================================================
-  async function checkPermissionsAndAutoStart() {
-    unlockAudioContext();
-
-    // Catch MindAR arError events cleanly
-    const arScene = document.getElementById('ar-scene');
-    if (arScene) {
-      arScene.addEventListener('arError', (event) => {
-        console.warn("MindAR reported arError:", event.detail);
-        handleCameraError({ name: 'NotAllowedError', message: 'Camera permission denied or stream failed' });
-      });
-
-      // When MindAR stream is ready and tracking begins
-      arScene.addEventListener('arReady', () => {
-        console.log("Shivam Jewels WebAR stream ready.");
-        hideCameraGuidance();
-        isARRunning = true;
-        isARStarting = false;
-      });
-    }
-
-    if (navigator.permissions && navigator.permissions.query) {
-      try {
-        const permissionStatus = await navigator.permissions.query({ name: 'camera' });
-        console.log("[Permissions API] Camera state:", permissionStatus.state);
-
-        if (permissionStatus.state === 'granted') {
-          // Camera already permitted -> Start automatically with zero clicks/modals
-          startARSession();
-        } else if (permissionStatus.state === 'prompt') {
-          // First visit / Prompt -> Launch directly so the browser shows native prompt
-          startARSession();
-        } else if (permissionStatus.state === 'denied') {
-          // Blocked -> Show guidance
-          handleCameraError({ name: 'NotAllowedError' });
-        }
-
-        // Listen for permission changes (e.g. user toggles in site settings)
-        permissionStatus.onchange = () => {
-          console.log("[Permissions API] Camera permission changed to:", permissionStatus.state);
-          if (permissionStatus.state === 'granted' && !isARRunning) {
-            startARSession();
-          }
-        };
-        return;
-      } catch (e) {
-        console.log("[Permissions API] Query unsupported, falling back to direct launch:", e);
-      }
-    }
-
-    // Fallback for iOS Safari / browsers without navigator.permissions.query({ name: 'camera' })
-    // Directly attempt camera start to trigger browser's native permission prompt
-    startARSession();
-  }
-
-  // ==========================================================================
-  // 7. MAIN APPLICATION INITIALIZATION
+  // 5. MAIN APPLICATION INITIALIZATION
   // ==========================================================================
   function initApp() {
     const targetEntity = document.getElementById('ar-target');
@@ -468,7 +376,7 @@
     const arWrapper = document.getElementById('ar-content-wrapper');
     const arScene = document.getElementById('ar-scene');
 
-    // Transparent WebGL canvas: Prevents white/black/blue screen flicker
+    // Transparent WebGL canvas setup
     if (arScene) {
       const makeCanvasTransparent = () => {
         if (arScene.renderer) {
@@ -526,27 +434,30 @@
     // Target Recognition Events
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
-        if (statusPill) statusPill.className = 'status-pill tracking';
-        if (statusText) statusText.textContent = 'SJ Card Detected';
-        if (reticle) reticle.classList.add('hidden');
-        playChime('success');
+        if (currentMode === MODES.AR) {
+          if (statusPill) statusPill.className = 'status-pill tracking';
+          if (statusText) statusText.textContent = 'SJ Card Detected';
+          if (reticle) reticle.classList.add('hidden');
 
-        if (arWrapper) {
-          arWrapper.setAttribute('visible', 'true');
-          if (arWrapper.object3D) arWrapper.object3D.visible = true;
-          arWrapper.emit('targetFound');
+          if (arWrapper) {
+            arWrapper.setAttribute('visible', 'true');
+            if (arWrapper.object3D) arWrapper.object3D.visible = true;
+            arWrapper.emit('targetFound');
+          }
         }
       });
 
       targetEntity.addEventListener('targetLost', () => {
-        if (statusPill) statusPill.className = 'status-pill searching';
-        if (statusText) statusText.textContent = 'Scan SJ Card';
-        if (reticle) reticle.classList.remove('hidden');
+        if (currentMode === MODES.AR) {
+          if (statusPill) statusPill.className = 'status-pill searching';
+          if (statusText) statusText.textContent = 'Scan SJ Card';
+          if (reticle) reticle.classList.remove('hidden');
 
-        if (arWrapper) {
-          arWrapper.setAttribute('visible', 'false');
-          if (arWrapper.object3D) arWrapper.object3D.visible = false;
-          arWrapper.setAttribute('scale', '0 0 0');
+          if (arWrapper) {
+            arWrapper.setAttribute('visible', 'false');
+            if (arWrapper.object3D) arWrapper.object3D.visible = false;
+            arWrapper.setAttribute('scale', '0 0 0');
+          }
         }
       });
 
@@ -588,15 +499,16 @@
       enhanceModelMaterials(document.getElementById('shivam-model-entity'));
     }
 
-    // Attach click handler on start button
+    // Attach click handler on start AR button
     const btnStartAr = document.getElementById('btn-start-ar');
     if (btnStartAr) {
       btnStartAr.onclick = window.handleStartARClick;
     }
 
-    // Launch loading screen first, then start camera session smoothly upon completion
+    // Launch loading screen first, then start AR directly upon completion
     setupLoadingScreen(() => {
-      checkPermissionsAndAutoStart();
+      currentMode = MODES.AR;
+      startARSession();
     });
   }
 
