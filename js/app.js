@@ -1,13 +1,13 @@
 /**
- * Shivam Jewels — Interactive WebAR Experience
+ * Shivam Jewels — Interactive WebAR & 3D Experience
  * Client: Shivam Jewels (ar.testsjit.in)
  * Version: 2.0.0
  * 
  * Features:
- * - Direct WebAR Experience with MindAR image target tracking
+ * - Dual Mode: Interactive AR Mode (live card tracking) & 3D View (360° virtual showroom)
+ * - Post-loading Experience Selection Modal with side-by-side buttons
+ * - Smooth 360° touch/mouse orbit controls for 3D View
  * - 13s Game-like staged diamond loading animation (10% -> 40% -> 55% -> 80% -> 95% -> 100%)
- * - Reticle target frame HUD
- * - Native browser camera permission flow & zero double-click direct launch
  * - Enhanced PBR diamond & platinum material shaders on GLTF models
  */
 
@@ -19,10 +19,13 @@
   // ==========================================================================
   const MODES = {
     LOADING: 'LOADING',
-    AR: 'AR'
+    SELECTION: 'SELECTION',
+    AR: 'AR',
+    VIEW_3D: 'VIEW_3D'
   };
 
   let currentMode = MODES.LOADING;
+  let is3DWorldAnchored = false;
 
   // ==========================================================================
   // 2. A-FRAME GLTF ANIMATION CONTROLLER COMPONENT
@@ -277,7 +280,189 @@
   };
 
   // ==========================================================================
-  // 4. DIAMOND LOADING SCREEN CONTROLLER
+  // 4. EXPERIENCE SELECTION MODAL & MODE SWITCHING
+  // ==========================================================================
+  window.openExperienceModal = function () {
+    const expModal = document.getElementById('experience-modal');
+    const permModal = document.getElementById('permission-modal');
+    const reticle = document.getElementById('scanning-reticle');
+
+    if (permModal) {
+      permModal.classList.add('hidden');
+      permModal.style.display = 'none';
+    }
+    if (reticle) reticle.classList.add('hidden');
+
+    if (expModal) {
+      expModal.classList.remove('hidden');
+      expModal.style.display = 'flex';
+    }
+  };
+
+  window.closeExperienceModal = function () {
+    const expModal = document.getElementById('experience-modal');
+    if (expModal) {
+      expModal.classList.add('hidden');
+      expModal.style.display = 'none';
+    }
+  };
+
+  window.selectExperienceMode = function (mode) {
+    window.closeExperienceModal();
+    const statusPill = document.getElementById('status-pill');
+    const statusText = document.getElementById('status-text');
+    const reticle = document.getElementById('scanning-reticle');
+    const labelText = document.getElementById('scanning-label-text');
+    const worldScene = document.getElementById('world-3d-scene');
+    const arWrapper = document.getElementById('ar-content-wrapper');
+
+    if (mode === 'AR') {
+      currentMode = MODES.AR;
+
+      // Deactivate 3D world scene
+      if (worldScene) worldScene.setAttribute('visible', 'false');
+
+      // Reset AR status and show reticle
+      if (statusPill) statusPill.className = 'status-pill searching';
+      if (statusText) statusText.textContent = 'AR SJ Card';
+      if (labelText) labelText.textContent = 'Point camera at Shivam Jewels card';
+      if (reticle) {
+        reticle.classList.remove('hidden');
+        reticle.style.display = 'flex';
+      }
+
+      startARSession();
+    } else if (mode === '3D') {
+      currentMode = MODES.VIEW_3D;
+      is3DWorldAnchored = false;
+
+      // Deactivate 3D world scene until card is scanned
+      if (worldScene) worldScene.setAttribute('visible', 'false');
+      if (arWrapper) {
+        arWrapper.setAttribute('visible', 'false');
+        arWrapper.setAttribute('scale', '0 0 0');
+      }
+
+      // Show reticle to scan card for distance-based 3D World creation
+      if (statusPill) statusPill.className = 'status-pill searching';
+      if (statusText) statusText.textContent = '3D SJ Card';
+      if (labelText) labelText.textContent = 'Point camera at Shivam Jewels card';
+      if (reticle) {
+        reticle.classList.remove('hidden');
+        reticle.style.display = 'flex';
+      }
+
+      startARSession();
+    }
+  };
+
+  // ==========================================================================
+  // 5. 360° SMOOTH ORBIT TOUCH/MOUSE CONTROLS (3D VIEW MODE)
+  // ==========================================================================
+  let isDragging = false;
+  let previousMousePosition = { x: 0, y: 0 };
+  let rotationY = 0;
+  let rotationX = 0;
+  let zoomZ = -2.0;
+  let initialPinchDistance = null;
+
+  function resetWorldOrbit(customDistance) {
+    rotationY = 0;
+    rotationX = 0;
+    zoomZ = (typeof customDistance === 'number' && !isNaN(customDistance)) ? customDistance : -2.0;
+    updateWorldTransform();
+  }
+
+  function updateWorldTransform() {
+    const wrapper = document.getElementById('world-content-wrapper');
+    if (wrapper) {
+      wrapper.setAttribute('rotation', `${rotationX} ${rotationY} 0`);
+      wrapper.setAttribute('position', `0 0 ${zoomZ}`);
+    }
+  }
+
+  function setupOrbitControls() {
+    const scene = document.querySelector('a-scene');
+    if (!scene) return;
+
+    // Touch events for mobile
+    window.addEventListener('touchstart', (e) => {
+      if (currentMode !== MODES.VIEW_3D) return;
+      if (e.touches.length === 1) {
+        isDragging = true;
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      } else if (e.touches.length === 2) {
+        isDragging = false;
+        initialPinchDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (currentMode !== MODES.VIEW_3D) return;
+      if (isDragging && e.touches.length === 1) {
+        const deltaX = e.touches[0].clientX - previousMousePosition.x;
+        const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+        rotationY += deltaX * 0.45;
+        rotationX = Math.max(-30, Math.min(30, rotationX + deltaY * 0.25));
+
+        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        updateWorldTransform();
+      } else if (e.touches.length === 2 && initialPinchDistance) {
+        const currentDistance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const diff = (currentDistance - initialPinchDistance) * 0.005;
+        zoomZ = Math.max(-3.5, Math.min(-1.2, zoomZ + diff));
+        initialPinchDistance = currentDistance;
+        updateWorldTransform();
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      isDragging = false;
+      initialPinchDistance = null;
+    }, { passive: true });
+
+    // Mouse events for desktop
+    window.addEventListener('mousedown', (e) => {
+      if (currentMode !== MODES.VIEW_3D) return;
+      // Don't drag if clicking buttons
+      if (e.target.closest('button, .modal-card, header')) return;
+      isDragging = true;
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (currentMode !== MODES.VIEW_3D || !isDragging) return;
+      const deltaX = e.clientX - previousMousePosition.x;
+      const deltaY = e.clientY - previousMousePosition.y;
+
+      rotationY += deltaX * 0.45;
+      rotationX = Math.max(-30, Math.min(30, rotationX + deltaY * 0.25));
+
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+      updateWorldTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    window.addEventListener('wheel', (e) => {
+      if (currentMode !== MODES.VIEW_3D) return;
+      const delta = e.deltaY * -0.002;
+      zoomZ = Math.max(-3.5, Math.min(-1.2, zoomZ + delta));
+      updateWorldTransform();
+    }, { passive: true });
+  }
+
+  // ==========================================================================
+  // 6. DIAMOND LOADING SCREEN CONTROLLER
   // ==========================================================================
   function setupLoadingScreen(onComplete) {
     const loadingScreen = document.getElementById('loading-screen');
@@ -366,7 +551,7 @@
   }
 
   // ==========================================================================
-  // 5. MAIN APPLICATION INITIALIZATION
+  // 7. MAIN APPLICATION INITIALIZATION
   // ==========================================================================
   function initApp() {
     const targetEntity = document.getElementById('ar-target');
@@ -391,6 +576,9 @@
         arScene.addEventListener('renderstart', makeCanvasTransparent, { once: true });
       }
     }
+
+    // Setup 360 orbit listeners
+    setupOrbitControls();
 
     // Remove any A-Frame default VR / AR UI buttons
     const removeVRUI = () => {
@@ -435,8 +623,9 @@
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
         if (currentMode === MODES.AR) {
+          // Standard AR Mode: continuous card tracking
           if (statusPill) statusPill.className = 'status-pill tracking';
-          if (statusText) statusText.textContent = 'SJ Card Detected';
+          if (statusText) statusText.textContent = 'AR SJ Card';
           if (reticle) reticle.classList.add('hidden');
 
           if (arWrapper) {
@@ -444,13 +633,53 @@
             if (arWrapper.object3D) arWrapper.object3D.visible = true;
             arWrapper.emit('targetFound');
           }
+        } else if (currentMode === MODES.VIEW_3D) {
+          if (!is3DWorldAnchored) {
+            is3DWorldAnchored = true;
+            // 3D View Mode: calculate card distance from user at (0,0,0) and create anchored 3D world
+            const worldScene = document.getElementById('world-3d-scene');
+            const worldPos = new THREE.Vector3();
+            if (targetEntity.object3D) {
+              targetEntity.object3D.getWorldPosition(worldPos);
+            }
+
+            let calculatedDistance = worldPos.length();
+            if (!calculatedDistance || isNaN(calculatedDistance) || calculatedDistance < 0.6) {
+              calculatedDistance = 2.0;
+            } else {
+              // Keep within comfortable viewing range
+              calculatedDistance = Math.min(3.5, Math.max(1.2, calculatedDistance));
+            }
+
+            // Anchor 3D world at the calculated distance
+            resetWorldOrbit(-calculatedDistance);
+
+            // Hide reticle & AR wrapper, show 3D world (live camera stream stays ON in background)
+            if (reticle) reticle.classList.add('hidden');
+            if (arWrapper) {
+              arWrapper.setAttribute('visible', 'false');
+              arWrapper.setAttribute('scale', '0 0 0');
+            }
+            if (worldScene) {
+              worldScene.setAttribute('visible', 'true');
+            }
+
+            if (statusPill) statusPill.className = 'status-pill tracking';
+            if (statusText) statusText.textContent = '3D SJ Card';
+
+            // Trigger model animations in 3D world
+            const ring3D = document.getElementById('world-ring-entity');
+            const shivam3D = document.getElementById('world-shivam-entity');
+            if (ring3D && ring3D.components['play-all-animations']) ring3D.components['play-all-animations'].playAnimations();
+            if (shivam3D && shivam3D.components['play-all-animations']) shivam3D.components['play-all-animations'].playAnimations();
+          }
         }
       });
 
       targetEntity.addEventListener('targetLost', () => {
         if (currentMode === MODES.AR) {
           if (statusPill) statusPill.className = 'status-pill searching';
-          if (statusText) statusText.textContent = 'Scan SJ Card';
+          if (statusText) statusText.textContent = 'AR SJ CARD';
           if (reticle) reticle.classList.remove('hidden');
 
           if (arWrapper) {
@@ -495,8 +724,11 @@
         entity.addEventListener('model-loaded', applyEnhancement);
       };
 
+      // Enhance materials for both AR and 3D scenes
       enhanceModelMaterials(document.getElementById('ring-model-entity'));
       enhanceModelMaterials(document.getElementById('shivam-model-entity'));
+      enhanceModelMaterials(document.getElementById('world-ring-entity'));
+      enhanceModelMaterials(document.getElementById('world-shivam-entity'));
     }
 
     // Attach click handler on start AR button
@@ -505,10 +737,10 @@
       btnStartAr.onclick = window.handleStartARClick;
     }
 
-    // Launch loading screen first, then start AR directly upon completion
+    // Launch loading screen first, then open experience selection modal upon completion
     setupLoadingScreen(() => {
-      currentMode = MODES.AR;
-      startARSession();
+      currentMode = MODES.SELECTION;
+      window.openExperienceModal();
     });
   }
 

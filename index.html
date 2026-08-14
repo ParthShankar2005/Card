@@ -55,12 +55,17 @@
     <!-- Status Pill Indicator (Left) -->
     <div id="status-pill" class="status-pill searching">
       <div class="status-dot"></div>
-      <span id="status-text">Scan SJ Card</span>
+      <span id="status-text">SJ Card</span>
     </div>
 
-    <!-- Brand Logo (Right Corner, Pure White) -->
-    <div class="brand-badge">
-      <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
+    <!-- Header Right Area (Switch Mode & Brand Logo) -->
+    <div class="header-right-area">
+      <button id="btn-switch-mode" class="header-switch-btn" onclick="openExperienceModal()" title="Switch Experience">
+        <i class="fas fa-layer-group"></i> <span>Switch View</span>
+      </button>
+      <div class="brand-badge">
+        <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
+      </div>
     </div>
   </header>
 
@@ -74,13 +79,13 @@
     </div>
 
     <!-- Single Clean Helper Text -->
-    <div class="scanning-label">
+    <div class="scanning-label" id="scanning-label-text">
       Point camera at Shivam Jewels card
     </div>
   </div>
 
   <!-- ==========================================================================
-       4. MAIN WEBAR A-FRAME SCENE CONTAINER
+       4. MAIN A-FRAME SCENE CONTAINER (AR & 3D VIEW)
        ========================================================================== -->
   <a-scene id="ar-scene"
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 12;"
@@ -101,11 +106,13 @@
       <img id="Booth" src="./assets/AR/Booth.png" />
     </a-assets>
 
-    <!-- Camera setup -->
-    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <!-- Camera Rig for Smooth 360° Orbit & AR Tracking -->
+    <a-entity id="camera-rig" position="0 0 0">
+      <a-camera id="main-camera" position="0 0 0" look-controls="enabled: false"></a-camera>
+    </a-entity>
 
     <!-- ========================================================================
-         AR EXPERIENCE TARGET (MINDAR IMAGE TRACKED)
+         SECTION A: AR EXPERIENCE TARGET (MINDAR IMAGE TRACKED)
          ======================================================================== -->
     <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
 
@@ -151,10 +158,86 @@
 
     </a-entity>
 
+    <!-- ========================================================================
+         SECTION B: 3D VIEW EXPERIENCE (PERSISTENT 360° DIGITAL SHOWROOM)
+         Edit X, Y, Z coordinates directly here for the 3D View mode
+         ======================================================================== -->
+    <a-entity id="world-3d-scene" visible="false">
+
+      <!-- Multi-Angle Studio Lighting for 3D View -->
+      <a-entity light="type: ambient; color: #ffffff; intensity: 3.0"></a-entity>
+      <a-entity light="type: directional; color: #ffffff; intensity: 3.8" position="2 4 4"></a-entity>
+      <a-entity light="type: directional; color: #82b2df; intensity: 2.2" position="-2 2 3"></a-entity>
+      <a-entity light="type: point; color: #ffffff; intensity: 3.2; distance: 8" position="0 1 2"></a-entity>
+
+      <!-- 3D Content Container -->
+      <a-entity id="world-content-wrapper" position="0 0 -2.0" rotation="0 0 0">
+
+        <!-- 1. Shivam Jewels Booth (Left side) -->
+        <a-plane id="world-booth-plane" src="#Booth" position="-1.3 0 -1" rotation="0 15 0" width="1.0" height="1.25"
+          material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
+        </a-plane>
+
+        <!-- 2. Shivam Jewels Banner (Right side) -->
+        <a-plane id="world-banner-plane" src="#shivamBanner" position="1.3 0 -1" rotation="0 -15 0" width="1.0"
+          height="1.25" material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
+        </a-plane>
+
+        <!-- 3. Shivam Jewels Official Logo (Center Top) -->
+        <a-plane id="world-logo-plane" src="#shivamLogo" position="0 0.8 0" rotation="0 0 0" width="1.0" height="0.26"
+          material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
+        </a-plane>
+
+        <!-- 4. Center Bottom: Flat Gem Ring Pedestal -->
+        <a-entity id="world-ring-container" position="0 -0.5 0.2" rotation="0 0 0">
+          <a-gltf-model id="world-ring-entity" src="#glbRing" scale="0.2 0.2 0.2" position="0 0 0" rotation="0 0 0"
+            play-all-animations>
+          </a-gltf-model>
+        </a-entity>
+
+        <!-- 5. Center: Shivam 3D Model Showcase -->
+        <a-entity id="world-shivam-container" position="0 -0.4 0.2" rotation="0 -90 0">
+          <a-gltf-model id="world-shivam-entity" src="#glbShivam" scale="3 3 3" position="0 0 0" rotation="0 0 0"
+            play-all-animations>
+          </a-gltf-model>
+        </a-entity>
+
+      </a-entity>
+
+    </a-entity>
+
   </a-scene>
 
   <!-- ==========================================================================
-       5. CAMERA PERMISSION & GUIDANCE MODAL (AR MODE)
+       5. CHOOSE YOUR EXPERIENCE MODAL (POST-LOADING SCREEN)
+       ========================================================================== -->
+  <div id="experience-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-logo-wrapper">
+        <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="modal-logo-img" />
+      </div>
+      <h2 class="modal-title">Select Experience</h2>
+      <p class="modal-subtitle">Shivam Jewels</p>
+      <p class="modal-desc">
+        Choose how you would like to view the showcase.
+      </p>
+
+      <!-- Side-by-Side Horizontal Buttons -->
+      <div class="experience-buttons-grid">
+        <button class="btn-exp btn-exp-ar" onclick="selectExperienceMode('AR')">
+          <i class="fas fa-camera"></i>
+          <span>AR Mode</span>
+        </button>
+        <button class="btn-exp btn-exp-3d" onclick="selectExperienceMode('3D')">
+          <i class="fas fa-cube"></i>
+          <span>3D View</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       6. CAMERA PERMISSION & GUIDANCE MODAL (AR MODE)
        ========================================================================== -->
   <div id="permission-modal" class="modal-overlay hidden">
     <div class="modal-card">
