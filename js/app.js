@@ -1,14 +1,15 @@
 /**
  * Shivam Jewels — Interactive WebAR & 3D Experience
  * Client: Shivam Jewels (ar.testsjit.in)
- * Version: 2.0.0
+ * Version: 2.1.0
  * 
  * Features:
- * - Dual Mode: Interactive AR Mode (live card tracking) & 3D View (360° virtual showroom)
- * - Post-loading Experience Selection Modal with side-by-side buttons
- * - Smooth 360° touch/mouse orbit controls for 3D View
- * - 13s Game-like staged diamond loading animation (10% -> 40% -> 55% -> 80% -> 95% -> 100%)
- * - Enhanced PBR diamond & platinum material shaders on GLTF models
+ * - Dual Mode Architecture: AR Mode (Continuous Tracking) & 3D Mode (One-Time Scan Unlock)
+ * - 13s Staged Game-like Diamond Loading Animation
+ * - Luxury Glassmorphic Mode Selection System & Mode Switcher
+ * - Touch & Drag Orbit Rotation Component for 3D Mode
+ * - Persistent 3D World Anchor with Camera 0° Alignment
+ * - PBR Diamond & Platinum Material Shaders for GLTF Models
  */
 
 (function () {
@@ -19,18 +20,21 @@
   // ==========================================================================
   const MODES = {
     LOADING: 'LOADING',
-    SELECTION: 'SELECTION',
+    SELECT: 'SELECT',
     AR: 'AR',
-    VIEW_3D: 'VIEW_3D'
+    THREED: 'THREED'
   };
 
   let currentMode = MODES.LOADING;
-  let is3DWorldAnchored = false;
+  let has3DUnlocked = false;
+  let isARStarting = false;
+  let isARRunning = false;
 
   // ==========================================================================
-  // 2. A-FRAME GLTF ANIMATION CONTROLLER COMPONENT
+  // 2. A-FRAME CUSTOM COMPONENTS
   // ==========================================================================
   if (typeof AFRAME !== 'undefined') {
+    // GLTF Animation Controller (Plays all animations on models)
     AFRAME.registerComponent('play-all-animations', {
       init: function () {
         this.mixer = null;
@@ -51,7 +55,11 @@
               action.clampWhenFinished = false;
               return action;
             });
-            this.playAnimations();
+
+            // Automatically play if 3D mode is unlocked or when ready
+            if (currentMode === MODES.THREED && has3DUnlocked) {
+              this.playAnimations();
+            }
           }
         });
 
@@ -87,14 +95,76 @@
         }
       }
     });
+
+    // Touch / Pointer Drag Rotation Controller for 3D Mode
+    AFRAME.registerComponent('touch-rotate', {
+      init: function () {
+        this.isDragging = false;
+        this.previousX = 0;
+        this.previousY = 0;
+        this.rotationSpeed = 0.45;
+        this.autoRotateSpeed = 0.2;
+        this.lastInteractTime = performance.now();
+
+        const onPointerDown = (e) => {
+          if (currentMode !== MODES.THREED || !has3DUnlocked) return;
+          // Ignore clicks on UI header or modal buttons
+          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
+
+          this.isDragging = true;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          this.previousX = clientX;
+          this.previousY = clientY;
+          this.lastInteractTime = performance.now();
+        };
+
+        const onPointerMove = (e) => {
+          if (!this.isDragging || currentMode !== MODES.THREED) return;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const deltaX = clientX - this.previousX;
+          const deltaY = clientY - this.previousY;
+
+          this.previousX = clientX;
+          this.previousY = clientY;
+          this.lastInteractTime = performance.now();
+
+          const currentRot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+          const newY = currentRot.y + deltaX * this.rotationSpeed;
+          const newX = Math.max(-25, Math.min(25, currentRot.x + deltaY * (this.rotationSpeed * 0.4)));
+
+          this.el.setAttribute('rotation', `${newX} ${newY} ${currentRot.z}`);
+        };
+
+        const onPointerUp = () => {
+          this.isDragging = false;
+        };
+
+        window.addEventListener('mousedown', onPointerDown, { passive: true });
+        window.addEventListener('mousemove', onPointerMove, { passive: true });
+        window.addEventListener('mouseup', onPointerUp, { passive: true });
+
+        window.addEventListener('touchstart', onPointerDown, { passive: true });
+        window.addEventListener('touchmove', onPointerMove, { passive: true });
+        window.addEventListener('touchend', onPointerUp, { passive: true });
+      },
+      tick: function (t, dt) {
+        // Gentle slow ambient auto-rotation when user is idle in 3D Mode
+        if (currentMode === MODES.THREED && has3DUnlocked && !this.isDragging && dt) {
+          if (performance.now() - this.lastInteractTime > 2500) {
+            const rot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
+            const deltaRot = (this.autoRotateSpeed * dt) / 1000 * 15;
+            this.el.setAttribute('rotation', `${rot.x} ${rot.y + deltaRot} ${rot.z}`);
+          }
+        }
+      }
+    });
   }
 
   // ==========================================================================
-  // 3. CAMERA PERMISSION & GUIDANCE MODAL (AR MODE)
+  // 3. CAMERA PERMISSION & LIFECYCLE CONTROLLER
   // ==========================================================================
-  let isARStarting = false;
-  let isARRunning = false;
-
   function showCameraGuidance(title, desc, errorDetails, isBlocked) {
     const modalOverlay = document.getElementById('permission-modal');
     const modalIcon = document.getElementById('modal-icon');
@@ -119,7 +189,7 @@
     }
 
     if (modalTitle) modalTitle.textContent = title || 'Camera Access Needed';
-    if (modalDesc) modalDesc.textContent = desc || 'Camera permission is needed to scan the SJ card and view the AR experience.';
+    if (modalDesc) modalDesc.textContent = desc || 'Camera permission is needed to scan the SJ card and launch the experience.';
 
     if (errorBox) {
       if (errorDetails) {
@@ -139,16 +209,11 @@
 
   function hideCameraGuidance() {
     const modalOverlay = document.getElementById('permission-modal');
-    const reticle = document.getElementById('scanning-reticle');
-
     if (modalOverlay) {
       modalOverlay.classList.add('hidden');
       modalOverlay.style.display = 'none';
     }
-    if (reticle && currentMode === MODES.AR) {
-      reticle.classList.remove('hidden');
-      reticle.style.display = 'flex';
-    }
+    updateReticleVisibility();
   }
 
   async function startARSession() {
@@ -215,34 +280,6 @@
     }
   }
 
-  function stopARSession() {
-    const arScene = document.getElementById('ar-scene');
-    if (arScene && arScene.systems && arScene.systems['mindar-image-system']) {
-      try {
-        const arSystem = arScene.systems['mindar-image-system'];
-        if (arSystem && isARRunning) {
-          arSystem.stop();
-        }
-      } catch (e) {
-        console.warn("Error stopping MindAR session:", e);
-      }
-    }
-    isARRunning = false;
-    isARStarting = false;
-
-    // Hide any AR video feeds
-    const videos = document.querySelectorAll('video');
-    videos.forEach((v) => {
-      if (v && v.srcObject) {
-        try {
-          const tracks = v.srcObject.getTracks();
-          tracks.forEach(track => track.stop());
-        } catch (e) { }
-      }
-      v.style.display = 'none';
-    });
-  }
-
   function handleCameraError(err) {
     isARStarting = false;
     isARRunning = false;
@@ -280,186 +317,110 @@
   };
 
   // ==========================================================================
-  // 4. EXPERIENCE SELECTION MODAL & MODE SWITCHING
+  // 4. RETICLE & HUD UPDATER
   // ==========================================================================
-  window.openExperienceModal = function () {
-    const expModal = document.getElementById('experience-modal');
-    const permModal = document.getElementById('permission-modal');
-    const reticle = document.getElementById('scanning-reticle');
-
-    if (permModal) {
-      permModal.classList.add('hidden');
-      permModal.style.display = 'none';
-    }
-    if (reticle) reticle.classList.add('hidden');
-
-    if (expModal) {
-      expModal.classList.remove('hidden');
-      expModal.style.display = 'flex';
-    }
-  };
-
-  window.closeExperienceModal = function () {
-    const expModal = document.getElementById('experience-modal');
-    if (expModal) {
-      expModal.classList.add('hidden');
-      expModal.style.display = 'none';
-    }
-  };
-
-  window.selectExperienceMode = function (mode) {
-    window.closeExperienceModal();
-    const statusPill = document.getElementById('status-pill');
-    const statusText = document.getElementById('status-text');
+  function updateReticleVisibility() {
     const reticle = document.getElementById('scanning-reticle');
     const labelText = document.getElementById('scanning-label-text');
-    const worldScene = document.getElementById('world-3d-scene');
-    const arWrapper = document.getElementById('ar-content-wrapper');
+    if (!reticle) return;
 
-    if (mode === 'AR') {
-      currentMode = MODES.AR;
-
-      // Deactivate 3D world scene
-      if (worldScene) worldScene.setAttribute('visible', 'false');
-
-      // Reset AR status and show reticle
-      if (statusPill) statusPill.className = 'status-pill searching';
-      if (statusText) statusText.textContent = 'AR SJ Card';
-      if (labelText) labelText.textContent = 'Point camera at Shivam Jewels card';
-      if (reticle) {
+    if (currentMode === MODES.AR) {
+      if (labelText) labelText.textContent = 'Point camera at SJ AR Card';
+      reticle.classList.remove('hidden');
+      reticle.style.display = 'flex';
+    } else if (currentMode === MODES.THREED) {
+      if (!has3DUnlocked) {
+        if (labelText) labelText.textContent = 'Point camera at SJ 3D Card to unlock';
         reticle.classList.remove('hidden');
         reticle.style.display = 'flex';
+      } else {
+        reticle.classList.add('hidden');
+        reticle.style.display = 'none';
       }
+    } else {
+      reticle.classList.add('hidden');
+      reticle.style.display = 'none';
+    }
+  }
 
+  // ==========================================================================
+  // 5. MODE SWITCHER & SELECTION CONTROLLER
+  // ==========================================================================
+  window.handleOpenModeSelect = function () {
+    const modeModal = document.getElementById('mode-selection-modal');
+    if (modeModal) {
+      modeModal.classList.remove('hidden');
+      modeModal.style.display = 'flex';
+    }
+  };
+
+  window.handleSelectMode = function (selectedMode) {
+    const modeModal = document.getElementById('mode-selection-modal');
+    if (modeModal) {
+      modeModal.classList.add('hidden');
+      modeModal.style.display = 'none';
+    }
+
+    const arWrapper = document.getElementById('ar-content-wrapper');
+    const threedWrapper = document.getElementById('threed-content-wrapper');
+    const statusPill = document.getElementById('status-pill');
+    const statusText = document.getElementById('status-text');
+    const modeLabel = document.getElementById('current-mode-label');
+    const gestureHint = document.getElementById('gesture-hint');
+
+    if (selectedMode === 'AR') {
+      currentMode = MODES.AR;
+      if (modeLabel) modeLabel.textContent = 'AR Mode';
+
+      // Hide 3D content, reset status
+      if (threedWrapper) {
+        threedWrapper.setAttribute('visible', 'false');
+        if (threedWrapper.object3D) threedWrapper.object3D.visible = false;
+        threedWrapper.setAttribute('scale', '0 0 0');
+      }
+      if (gestureHint) gestureHint.classList.add('hidden');
+
+      if (statusPill) statusPill.className = 'status-pill searching';
+      if (statusText) statusText.textContent = 'Scan SJ AR Card';
+
+      updateReticleVisibility();
       startARSession();
-    } else if (mode === '3D') {
-      currentMode = MODES.VIEW_3D;
-      is3DWorldAnchored = false;
 
-      // Deactivate 3D world scene until card is scanned
-      if (worldScene) worldScene.setAttribute('visible', 'false');
+    } else if (selectedMode === 'THREED') {
+      currentMode = MODES.THREED;
+      if (modeLabel) modeLabel.textContent = '3D Mode';
+
+      // Hide AR content
       if (arWrapper) {
         arWrapper.setAttribute('visible', 'false');
+        if (arWrapper.object3D) arWrapper.object3D.visible = false;
         arWrapper.setAttribute('scale', '0 0 0');
       }
 
-      // Show reticle to scan card for distance-based 3D World creation
-      if (statusPill) statusPill.className = 'status-pill searching';
-      if (statusText) statusText.textContent = '3D SJ Card';
-      if (labelText) labelText.textContent = 'Point camera at Shivam Jewels card';
-      if (reticle) {
-        reticle.classList.remove('hidden');
-        reticle.style.display = 'flex';
+      if (has3DUnlocked) {
+        // Already unlocked: directly show 3D world
+        if (threedWrapper) {
+          threedWrapper.setAttribute('visible', 'true');
+          if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
+          threedWrapper.setAttribute('scale', '1 1 1');
+        }
+        if (statusPill) statusPill.className = 'status-pill threed-active';
+        if (statusText) statusText.textContent = 'SJ 3D Card Detected';
+        if (gestureHint) {
+          gestureHint.classList.remove('hidden');
+          setTimeout(() => gestureHint.classList.add('hidden'), 4500);
+        }
+        updateReticleVisibility();
+      } else {
+        // Needs initial 1-time scan
+        if (statusPill) statusPill.className = 'status-pill searching';
+        if (statusText) statusText.textContent = 'Scan SJ 3D Card';
+        updateReticleVisibility();
       }
 
       startARSession();
     }
   };
-
-  // ==========================================================================
-  // 5. 360° SMOOTH ORBIT TOUCH/MOUSE CONTROLS (3D VIEW MODE)
-  // ==========================================================================
-  let isDragging = false;
-  let previousMousePosition = { x: 0, y: 0 };
-  let rotationY = 0;
-  let rotationX = 0;
-  let zoomZ = -2.0;
-  let initialPinchDistance = null;
-
-  function resetWorldOrbit(customDistance) {
-    rotationY = 0;
-    rotationX = 0;
-    zoomZ = (typeof customDistance === 'number' && !isNaN(customDistance)) ? customDistance : -2.0;
-    updateWorldTransform();
-  }
-
-  function updateWorldTransform() {
-    const wrapper = document.getElementById('world-content-wrapper');
-    if (wrapper) {
-      wrapper.setAttribute('rotation', `${rotationX} ${rotationY} 0`);
-      wrapper.setAttribute('position', `0 0 ${zoomZ}`);
-    }
-  }
-
-  function setupOrbitControls() {
-    const scene = document.querySelector('a-scene');
-    if (!scene) return;
-
-    // Touch events for mobile
-    window.addEventListener('touchstart', (e) => {
-      if (currentMode !== MODES.VIEW_3D) return;
-      if (e.touches.length === 1) {
-        isDragging = true;
-        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-      } else if (e.touches.length === 2) {
-        isDragging = false;
-        initialPinchDistance = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-      if (currentMode !== MODES.VIEW_3D) return;
-      if (isDragging && e.touches.length === 1) {
-        const deltaX = e.touches[0].clientX - previousMousePosition.x;
-        const deltaY = e.touches[0].clientY - previousMousePosition.y;
-
-        rotationY += deltaX * 0.45;
-        rotationX = Math.max(-30, Math.min(30, rotationX + deltaY * 0.25));
-
-        previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        updateWorldTransform();
-      } else if (e.touches.length === 2 && initialPinchDistance) {
-        const currentDistance = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const diff = (currentDistance - initialPinchDistance) * 0.005;
-        zoomZ = Math.max(-3.5, Math.min(-1.2, zoomZ + diff));
-        initialPinchDistance = currentDistance;
-        updateWorldTransform();
-      }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-      isDragging = false;
-      initialPinchDistance = null;
-    }, { passive: true });
-
-    // Mouse events for desktop
-    window.addEventListener('mousedown', (e) => {
-      if (currentMode !== MODES.VIEW_3D) return;
-      // Don't drag if clicking buttons
-      if (e.target.closest('button, .modal-card, header')) return;
-      isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (currentMode !== MODES.VIEW_3D || !isDragging) return;
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
-
-      rotationY += deltaX * 0.45;
-      rotationX = Math.max(-30, Math.min(30, rotationX + deltaY * 0.25));
-
-      previousMousePosition = { x: e.clientX, y: e.clientY };
-      updateWorldTransform();
-    });
-
-    window.addEventListener('mouseup', () => {
-      isDragging = false;
-    });
-
-    window.addEventListener('wheel', (e) => {
-      if (currentMode !== MODES.VIEW_3D) return;
-      const delta = e.deltaY * -0.002;
-      zoomZ = Math.max(-3.5, Math.min(-1.2, zoomZ + delta));
-      updateWorldTransform();
-    }, { passive: true });
-  }
 
   // ==========================================================================
   // 6. DIAMOND LOADING SCREEN CONTROLLER
@@ -559,6 +520,8 @@
     const statusText = document.getElementById('status-text');
     const reticle = document.getElementById('scanning-reticle');
     const arWrapper = document.getElementById('ar-content-wrapper');
+    const threedWrapper = document.getElementById('threed-content-wrapper');
+    const gestureHint = document.getElementById('gesture-hint');
     const arScene = document.getElementById('ar-scene');
 
     // Transparent WebGL canvas setup
@@ -576,9 +539,6 @@
         arScene.addEventListener('renderstart', makeCanvasTransparent, { once: true });
       }
     }
-
-    // Setup 360 orbit listeners
-    setupOrbitControls();
 
     // Remove any A-Frame default VR / AR UI buttons
     const removeVRUI = () => {
@@ -619,13 +579,15 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Target Recognition Events
+    // ========================================================================
+    // Target Recognition Events (Handles AR Continuous Tracking vs 3D Unlock)
+    // ========================================================================
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
         if (currentMode === MODES.AR) {
-          // Standard AR Mode: continuous card tracking
+          // --- AR MODE (Continuous Live Tracking) ---
           if (statusPill) statusPill.className = 'status-pill tracking';
-          if (statusText) statusText.textContent = 'AR SJ Card';
+          if (statusText) statusText.textContent = 'SJ AR Card Detected';
           if (reticle) reticle.classList.add('hidden');
 
           if (arWrapper) {
@@ -633,53 +595,41 @@
             if (arWrapper.object3D) arWrapper.object3D.visible = true;
             arWrapper.emit('targetFound');
           }
-        } else if (currentMode === MODES.VIEW_3D) {
-          if (!is3DWorldAnchored) {
-            is3DWorldAnchored = true;
-            // 3D View Mode: calculate card distance from user at (0,0,0) and create anchored 3D world
-            const worldScene = document.getElementById('world-3d-scene');
-            const worldPos = new THREE.Vector3();
-            if (targetEntity.object3D) {
-              targetEntity.object3D.getWorldPosition(worldPos);
-            }
+        } else if (currentMode === MODES.THREED) {
+          // --- 3D MODE (One-Time Scan Unlock) ---
+          has3DUnlocked = true;
 
-            let calculatedDistance = worldPos.length();
-            if (!calculatedDistance || isNaN(calculatedDistance) || calculatedDistance < 0.6) {
-              calculatedDistance = 2.0;
-            } else {
-              // Keep within comfortable viewing range
-              calculatedDistance = Math.min(3.5, Math.max(1.2, calculatedDistance));
-            }
+          if (statusPill) statusPill.className = 'status-pill threed-active';
+          if (statusText) statusText.textContent = 'SJ 3D Card Detected';
+          if (reticle) reticle.classList.add('hidden');
 
-            // Anchor 3D world at the calculated distance
-            resetWorldOrbit(-calculatedDistance);
+          if (threedWrapper) {
+            threedWrapper.setAttribute('visible', 'true');
+            if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
+            threedWrapper.setAttribute('scale', '1 1 1');
 
-            // Hide reticle & AR wrapper, show 3D world (live camera stream stays ON in background)
-            if (reticle) reticle.classList.add('hidden');
-            if (arWrapper) {
-              arWrapper.setAttribute('visible', 'false');
-              arWrapper.setAttribute('scale', '0 0 0');
-            }
-            if (worldScene) {
-              worldScene.setAttribute('visible', 'true');
-            }
+            // Trigger animations on models
+            const models = threedWrapper.querySelectorAll('[play-all-animations]');
+            models.forEach((m) => {
+              const comp = m.components['play-all-animations'];
+              if (comp) comp.playAnimations();
+            });
+          }
 
-            if (statusPill) statusPill.className = 'status-pill tracking';
-            if (statusText) statusText.textContent = '3D SJ Card';
-
-            // Trigger model animations in 3D world
-            const ring3D = document.getElementById('world-ring-entity');
-            const shivam3D = document.getElementById('world-shivam-entity');
-            if (ring3D && ring3D.components['play-all-animations']) ring3D.components['play-all-animations'].playAnimations();
-            if (shivam3D && shivam3D.components['play-all-animations']) shivam3D.components['play-all-animations'].playAnimations();
+          if (gestureHint) {
+            gestureHint.classList.remove('hidden');
+            setTimeout(() => {
+              if (gestureHint) gestureHint.classList.add('hidden');
+            }, 4500);
           }
         }
       });
 
       targetEntity.addEventListener('targetLost', () => {
         if (currentMode === MODES.AR) {
+          // --- AR MODE: Hide models when card is lost ---
           if (statusPill) statusPill.className = 'status-pill searching';
-          if (statusText) statusText.textContent = 'AR SJ CARD';
+          if (statusText) statusText.textContent = 'Scan SJ AR Card';
           if (reticle) reticle.classList.remove('hidden');
 
           if (arWrapper) {
@@ -687,12 +637,26 @@
             if (arWrapper.object3D) arWrapper.object3D.visible = false;
             arWrapper.setAttribute('scale', '0 0 0');
           }
+        } else if (currentMode === MODES.THREED) {
+          // --- 3D MODE: Keep 3D World Persistently Visible! ---
+          if (has3DUnlocked) {
+            if (statusPill) statusPill.className = 'status-pill threed-active';
+            if (statusText) statusText.textContent = 'SJ 3D Card Detected';
+            if (reticle) reticle.classList.add('hidden');
+            // Do NOT hide threedWrapper! It stays permanently active.
+          } else {
+            if (statusPill) statusPill.className = 'status-pill searching';
+            if (statusText) statusText.textContent = 'Scan SJ 3D Card';
+            if (reticle) reticle.classList.remove('hidden');
+          }
         }
       });
 
-      // Material Enhancer for 3D Diamond & Platinum Models
-      const enhanceModelMaterials = (entity) => {
+      // Material Enhancer for PBR Diamond & Platinum Shaders
+      const enhanceModelMaterials = (entityId) => {
+        const entity = document.getElementById(entityId);
         if (!entity) return;
+
         const applyEnhancement = () => {
           const meshObj = entity.getObject3D('mesh');
           if (meshObj && window.THREE) {
@@ -724,23 +688,23 @@
         entity.addEventListener('model-loaded', applyEnhancement);
       };
 
-      // Enhance materials for both AR and 3D scenes
-      enhanceModelMaterials(document.getElementById('ring-model-entity'));
-      enhanceModelMaterials(document.getElementById('shivam-model-entity'));
-      enhanceModelMaterials(document.getElementById('world-ring-entity'));
-      enhanceModelMaterials(document.getElementById('world-shivam-entity'));
+      // Enhance both AR and 3D mode models
+      enhanceModelMaterials('ring-model-entity');
+      enhanceModelMaterials('shivam-model-entity');
+      enhanceModelMaterials('ring-model-entity-3d');
+      enhanceModelMaterials('shivam-model-entity-3d');
     }
 
-    // Attach click handler on start AR button
+    // Attach click handler on start AR button in permission modal
     const btnStartAr = document.getElementById('btn-start-ar');
     if (btnStartAr) {
       btnStartAr.onclick = window.handleStartARClick;
     }
 
-    // Launch loading screen first, then open experience selection modal upon completion
+    // Launch loading screen first, then open Mode Selection screen upon completion
     setupLoadingScreen(() => {
-      currentMode = MODES.SELECTION;
-      window.openExperienceModal();
+      currentMode = MODES.SELECT;
+      window.handleOpenModeSelect();
     });
   }
 
@@ -750,4 +714,5 @@
     initApp();
   }
 })();
+
 
