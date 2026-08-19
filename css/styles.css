@@ -282,6 +282,29 @@ a-scene {
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.85);
 }
 
+.status-pill.scanning {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: rgba(14, 165, 233, 0.55);
+  color: #bae6fd;
+}
+
+.status-pill.scanning .status-dot {
+  background: #0ea5e9;
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.95);
+  animation: pulse-dot 0.6s infinite alternate ease-in-out;
+}
+
+.status-pill.warning {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.55);
+  color: #fde68a;
+}
+
+.status-pill.warning .status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.9);
+}
+
 @keyframes pulse-dot {
   0% {
     opacity: 0.45;

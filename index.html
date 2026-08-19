@@ -151,7 +151,7 @@
     <!-- ========================================================================
          AR & 3D EXPERIENCE TARGET (MINDAR IMAGE TRACKED)
          ======================================================================== -->
-    <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
+    <a-entity id="ar-target" mindar-image-target="targetIndex: 0" freeze-on-lock>
 
       <!-- Multi-Angle Lighting for Maximum Gem Reflection & Visibility -->
       <a-entity light="type: ambient; color: #ffffff; intensity: 3.0"></a-entity>
@@ -160,7 +160,7 @@
       <a-entity light="type: point; color: #ffffff; intensity: 3.5; distance: 6" position="0 0.5 1"></a-entity>
 
       <!-- ========================================================================
-           1. AR MODE CONTENT (Continuous Live Tracking)
+           1. AR MODE CONTENT (Continuous Live Tracking Only)
            ======================================================================== -->
       <a-entity id="ar-content-wrapper" visible="false" scale="1 1 1">
 
@@ -195,7 +195,7 @@
       </a-entity>
 
       <!-- ========================================================================
-           2. 3D MODE CONTENT (1:1 Clean Models + 360° Touch Rotate)
+           2. 3D MODE CONTENT (1:1 Clean Models + 360° Camera Look)
            ======================================================================== -->
       <a-entity id="threed-content-wrapper" visible="false" scale="1 1 1" touch-rotate>
 

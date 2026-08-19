@@ -39,9 +39,52 @@
   let isSimulatedTargetFound = false;
 
   // ==========================================================================
+  // 3D ENVIRONMENT & CARD LIFECYCLE STATE MACHINE
+  // ==========================================================================
+  const THREED_STATE = {
+    SEARCHING_INITIAL: 'SEARCHING_INITIAL',         // Initial: Waiting for 3-second continuous card scan
+    ACTIVE_BUILDING: 'ACTIVE_BUILDING',             // 3D Space active, 20s background process running
+    WAITING_FOR_CARD_1MIN: 'WAITING_FOR_CARD_1MIN', // 20s complete, 1-minute waiting for card return
+    REQUIRE_RESCAN: 'REQUIRE_RESCAN'               // 1-minute expired, status "Scan card again"
+  };
+
+  let threedState = THREED_STATE.SEARCHING_INITIAL;
+  let isCardInView = false;
+  let cardConfirmTimer = null;
+  let cardConfirmStart = null;
+  let background20SecTimer = null;
+  let cardReturn1MinTimer = null;
+
+  // ==========================================================================
   // 2. A-FRAME CUSTOM COMPONENTS
   // ==========================================================================
   if (typeof AFRAME !== 'undefined') {
+    // Anchor & Freeze Pose Component for 3D Mode (Stops continuous card tracking after scan)
+    AFRAME.registerComponent('freeze-on-lock', {
+      init: function () {
+        this.frozenMatrix = new THREE.Matrix4();
+        this.isFrozen = false;
+      },
+      lockCurrentPose: function () {
+        if (this.el && this.el.object3D) {
+          this.frozenMatrix.copy(this.el.object3D.matrix);
+          this.isFrozen = true;
+          console.log("[3D Anchor] World pose locked. Continuous card tracking stopped.");
+        }
+      },
+      unlock: function () {
+        this.isFrozen = false;
+        console.log("[3D Anchor] Unlocked tracking for background scan check.");
+      },
+      tick: function () {
+        if (currentMode === MODES.THREED && this.isFrozen && this.el.object3D) {
+          this.el.object3D.matrix.copy(this.frozenMatrix);
+          this.el.object3D.matrixWorldNeedsUpdate = true;
+          this.el.object3D.visible = true;
+        }
+      }
+    });
+
     // GLTF Animation Controller (Plays all animations on models reliably)
     AFRAME.registerComponent('play-all-animations', {
       init: function () {
@@ -224,23 +267,30 @@
           lastTapTime = now;
         };
 
-        // Device Orientation (Phone Physical Turning / Gyroscope Blend on Camera)
-        const onDeviceOrientation = (e) => {
+        // Device Orientation (Phone Physical 360° Turning & Gyroscope Look)
+        window.addEventListener('deviceorientation', (event) => {
+          console.log('GYRO:', {
+            alpha: event.alpha,
+            beta: event.beta,
+            gamma: event.gamma
+          });
+
           if (currentMode !== MODES.THREED || !has3DUnlocked || this.isDragging) return;
-          if (e.alpha === null || e.alpha === undefined) return;
+          if (event.alpha === null || event.alpha === undefined) return;
 
           if (this.initialAlpha === null) {
-            this.initialAlpha = e.alpha;
+            this.initialAlpha = event.alpha;
           }
-          const deltaHeading = (e.alpha - this.initialAlpha);
-          if (Math.abs(deltaHeading) > 0.8) {
+          // Relative heading delta around Y-axis (Turning phone left/right/behind in room)
+          const deltaHeading = (event.alpha - this.initialAlpha);
+          if (Math.abs(deltaHeading) > 0.5) {
             const cameraEl = getCameraEl();
             if (cameraEl && cameraEl.object3D) {
               const effectiveYaw = this.camYaw + deltaHeading;
               cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(effectiveYaw);
             }
           }
-        };
+        }, { passive: true });
 
         window.addEventListener('mousedown', onPointerDown, { passive: true });
         window.addEventListener('mousemove', onPointerMove, { passive: true });
@@ -253,24 +303,58 @@
         window.addEventListener('touchend', onDoubleTap, { passive: true });
         window.addEventListener('wheel', onWheel, { passive: false });
 
-        if (window.DeviceOrientationEvent) {
-          window.addEventListener('deviceorientation', onDeviceOrientation, { passive: true });
+        // iOS Safari DeviceOrientation Permission Initializer
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const requestGyroPermission = () => {
+            DeviceOrientationEvent.requestPermission()
+              .then((permissionState) => {
+                if (permissionState === 'granted') {
+                  console.log("[Gyroscope] iOS Sensor Permission Granted.");
+                }
+              })
+              .catch(console.error);
+          };
+          window.addEventListener('click', requestGyroPermission, { once: true });
+          window.addEventListener('touchend', requestGyroPermission, { once: true });
         }
       }
     });
   }
 
   // ==========================================================================
-  // 3. CAMERA PERMISSION & LIFECYCLE CONTROLLER
+  // 3. LIFECYCLE & STATE MACHINE CONTROLLERS
   // ==========================================================================
-  function simulateTargetFound() {
-    isSimulatedTargetFound = true;
-    const targetEntity = document.getElementById('ar-target');
-    const arWrapper = document.getElementById('ar-content-wrapper');
-    const threedPivot = document.getElementById('threed-world-pivot');
-    const threedWrapper = document.getElementById('threed-content-wrapper');
+  function updateStatusPill(className, text) {
     const statusPill = document.getElementById('status-pill');
     const statusText = document.getElementById('status-text');
+    if (statusPill) statusPill.className = `status-pill ${className}`;
+    if (statusText) statusText.textContent = text;
+  }
+
+  function start3SecondConfirmation(onSuccess) {
+    clear3SecondConfirmation();
+    cardConfirmStart = performance.now();
+    updateStatusPill('scanning', 'Scanning... Hold Still');
+
+    cardConfirmTimer = setTimeout(() => {
+      cardConfirmTimer = null;
+      cardConfirmStart = null;
+      if (typeof onSuccess === 'function') onSuccess();
+    }, 3000);
+  }
+
+  function clear3SecondConfirmation() {
+    if (cardConfirmTimer) {
+      clearTimeout(cardConfirmTimer);
+      cardConfirmTimer = null;
+    }
+    cardConfirmStart = null;
+  }
+
+  function buildOrRefresh3DEnvironment() {
+    has3DUnlocked = true;
+    const threedWrapper = document.getElementById('threed-content-wrapper');
+    const targetEntity = document.getElementById('ar-target');
     const reticle = document.getElementById('scanning-reticle');
     const gestureHint = document.getElementById('gesture-hint');
 
@@ -279,9 +363,132 @@
       reticle.style.display = 'none';
     }
 
+    if (targetEntity && targetEntity.object3D) {
+      targetEntity.object3D.visible = true;
+    }
+
+    if (threedWrapper) {
+      threedWrapper.setAttribute('visible', 'true');
+      if (threedWrapper.object3D) {
+        threedWrapper.object3D.visible = true;
+        threedWrapper.object3D.scale.set(1, 1, 1);
+      }
+      threedWrapper.setAttribute('scale', '1 1 1');
+      threedWrapper.emit('threedFound');
+
+      const models = threedWrapper.querySelectorAll('[play-all-animations]');
+      models.forEach((m) => {
+        const comp = m.components['play-all-animations'];
+        if (comp) comp.playAnimations();
+      });
+    }
+
+    // Status Pill: "Card Found"
+    updateStatusPill('threed-active', 'Card Found');
+
+    if (gestureHint) {
+      gestureHint.classList.remove('hidden');
+      setTimeout(() => {
+        if (gestureHint) gestureHint.classList.add('hidden');
+      }, 4500);
+    }
+  }
+
+  function handleCardConfirmed() {
+    console.log("[Lifecycle] 3-Second Card Scan Confirmed! Creating/refreshing 3D Environment.");
+
+    // Clear any active 1-minute card-return timers
+    clear1MinCardTimeout();
+
+    // 1. Create or refresh the 3D environment
+    buildOrRefresh3DEnvironment();
+
+    // 2. Lock the 3D pose in place — STOPS continuous card tracking completely!
+    const targetEntity = document.getElementById('ar-target');
+    if (targetEntity && targetEntity.components['freeze-on-lock']) {
+      targetEntity.components['freeze-on-lock'].lockCurrentPose();
+    }
+
+    // 3. Transition to ACTIVE_BUILDING state
+    threedState = THREED_STATE.ACTIVE_BUILDING;
+
+    // 4. Start 20-Second Background Build Process (invisible to user)
+    start20SecondBackgroundBuild();
+  }
+
+  function start20SecondBackgroundBuild() {
+    if (background20SecTimer) {
+      clearTimeout(background20SecTimer);
+    }
+    console.log("[Lifecycle] Starting 20-second background environment build process...");
+
+    background20SecTimer = setTimeout(() => {
+      background20SecTimer = null;
+      on20SecondBackgroundComplete();
+    }, 20000);
+  }
+
+  function on20SecondBackgroundComplete() {
+    console.log("[Lifecycle] 20-second background process complete. Checking card presence for new build...");
+
+    // Unlock target pose to allow background scanner to evaluate new card placement
+    const targetEntity = document.getElementById('ar-target');
+    if (targetEntity && targetEntity.components['freeze-on-lock']) {
+      targetEntity.components['freeze-on-lock'].unlock();
+    }
+
+    if (isCardInView) {
+      // Case: Card is currently inside the camera frame -> Require 3-second continuous scan
+      console.log("[Lifecycle] Card is visible! Requiring 3-second continuous confirmation...");
+      start3SecondConfirmation(() => {
+        handleCardConfirmed();
+      });
+    } else {
+      // Case: Card is NOT in camera frame -> Transition to 1-Minute Waiting State (Card absent is OK)
+      console.log("[Lifecycle] Card is not in frame. Entering 1-Minute Waiting Period...");
+      threedState = THREED_STATE.WAITING_FOR_CARD_1MIN;
+      start1MinCardTimeout();
+    }
+  }
+
+  function start1MinCardTimeout() {
+    clear1MinCardTimeout();
+    console.log("[Lifecycle] 1-Minute card-return countdown started.");
+
+    cardReturn1MinTimer = setTimeout(() => {
+      cardReturn1MinTimer = null;
+      on1MinCardTimeoutExpired();
+    }, 60000);
+  }
+
+  function clear1MinCardTimeout() {
+    if (cardReturn1MinTimer) {
+      clearTimeout(cardReturn1MinTimer);
+      cardReturn1MinTimer = null;
+    }
+  }
+
+  function on1MinCardTimeoutExpired() {
+    console.log("[Lifecycle] 1-Minute waiting period expired without card return.");
+    threedState = THREED_STATE.REQUIRE_RESCAN;
+
+    // Change status pill to warning state
+    updateStatusPill('warning', 'Scan card again');
+  }
+
+  function simulateTargetFound() {
+    isSimulatedTargetFound = true;
+    const targetEntity = document.getElementById('ar-target');
+    const arWrapper = document.getElementById('ar-content-wrapper');
+    const reticle = document.getElementById('scanning-reticle');
+
+    if (reticle) {
+      reticle.classList.add('hidden');
+      reticle.style.display = 'none';
+    }
+
     if (currentMode === MODES.AR) {
-      if (statusPill) statusPill.className = 'status-pill tracking';
-      if (statusText) statusText.textContent = 'SJ AR Card';
+      updateStatusPill('tracking', 'SJ AR Card');
 
       if (arWrapper) {
         arWrapper.setAttribute('visible', 'true');
@@ -292,29 +499,10 @@
       if (targetEntity) targetEntity.emit('targetFound');
 
     } else if (currentMode === MODES.THREED) {
-      has3DUnlocked = true;
-      if (statusPill) statusPill.className = 'status-pill threed-active';
-      if (statusText) statusText.textContent = 'SJ 3D Card';
-
-      if (threedWrapper) {
-        threedWrapper.setAttribute('visible', 'true');
-        if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
-        threedWrapper.setAttribute('scale', '1 1 1');
-        threedWrapper.emit('threedFound');
-
-        const models = threedWrapper.querySelectorAll('[play-all-animations]');
-        models.forEach((m) => {
-          const comp = m.components['play-all-animations'];
-          if (comp) comp.playAnimations();
-        });
-      }
-
-      if (gestureHint) {
-        gestureHint.classList.remove('hidden');
-        setTimeout(() => {
-          if (gestureHint) gestureHint.classList.add('hidden');
-        }, 4500);
-      }
+      isCardInView = true;
+      start3SecondConfirmation(() => {
+        handleCardConfirmed();
+      });
     }
   }
 
@@ -322,13 +510,10 @@
     isSimulatedTargetFound = false;
     const targetEntity = document.getElementById('ar-target');
     const arWrapper = document.getElementById('ar-content-wrapper');
-    const statusPill = document.getElementById('status-pill');
-    const statusText = document.getElementById('status-text');
     const reticle = document.getElementById('scanning-reticle');
 
     if (currentMode === MODES.AR) {
-      if (statusPill) statusPill.className = 'status-pill searching';
-      if (statusText) statusText.textContent = 'Scan SJ AR Card';
+      updateStatusPill('searching', 'Scan SJ AR Card');
       if (reticle) {
         reticle.classList.remove('hidden');
         reticle.style.display = 'flex';
@@ -336,9 +521,11 @@
       if (arWrapper) {
         arWrapper.setAttribute('visible', 'false');
         if (arWrapper.object3D) arWrapper.object3D.visible = false;
-        arWrapper.setAttribute('scale', '0 0 0');
       }
       if (targetEntity) targetEntity.emit('targetLost');
+    } else if (currentMode === MODES.THREED) {
+      isCardInView = false;
+      clear3SecondConfirmation();
     }
   }
 
@@ -574,6 +761,16 @@
       currentMode = MODES.AR;
       if (modeLabel) modeLabel.textContent = 'AR Mode';
 
+      // Clear 3D Lifecycle Timers & Unfreeze
+      clear3SecondConfirmation();
+      if (background20SecTimer) { clearTimeout(background20SecTimer); background20SecTimer = null; }
+      clear1MinCardTimeout();
+
+      const targetEntity = document.getElementById('ar-target');
+      if (targetEntity && targetEntity.components['freeze-on-lock']) {
+        targetEntity.components['freeze-on-lock'].unlock();
+      }
+
       // Hide 3D content, reset status
       if (threedWrapper) {
         threedWrapper.setAttribute('visible', 'false');
@@ -584,8 +781,7 @@
 
       if (gestureHint) gestureHint.classList.add('hidden');
 
-      if (statusPill) statusPill.className = 'status-pill searching';
-      if (statusText) statusText.textContent = 'Scan SJ AR Card';
+      updateStatusPill('searching', 'Scan SJ AR Card');
 
       updateReticleVisibility();
       startARSession();
@@ -617,17 +813,20 @@
           if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
           threedWrapper.setAttribute('scale', '1 1 1');
         }
-        if (statusPill) statusPill.className = 'status-pill threed-active';
-        if (statusText) statusText.textContent = 'SJ 3D Card';
+        if (threedState === THREED_STATE.REQUIRE_RESCAN) {
+          updateStatusPill('warning', 'Scan card again');
+        } else {
+          updateStatusPill('threed-active', 'Card Found');
+        }
         if (gestureHint) {
           gestureHint.classList.remove('hidden');
           setTimeout(() => gestureHint.classList.add('hidden'), 4500);
         }
         updateReticleVisibility();
       } else {
-        // Needs initial 1-time scan
-        if (statusPill) statusPill.className = 'status-pill searching';
-        if (statusText) statusText.textContent = 'Scan SJ 3D Card';
+        // Needs initial 3-second scan
+        threedState = THREED_STATE.SEARCHING_INITIAL;
+        updateStatusPill('searching', 'Point camera at Card');
         updateReticleVisibility();
 
         // On Port 5000 Bypass mode, automatically trigger detection in 600ms
@@ -803,14 +1002,13 @@
     observer.observe(document.body, { childList: true, subtree: true });
 
     // ========================================================================
-    // Target Recognition Events (Handles AR Continuous Tracking vs 3D Unlock)
+    // Target Recognition Events (Handles AR Continuous Tracking vs 3D Lifecycle)
     // ========================================================================
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
         if (currentMode === MODES.AR) {
           // --- AR MODE (Continuous Live Tracking) ---
-          if (statusPill) statusPill.className = 'status-pill tracking';
-          if (statusText) statusText.textContent = 'SJ AR Card';
+          updateStatusPill('tracking', 'SJ AR Card');
           if (reticle) reticle.classList.add('hidden');
 
           if (arWrapper) {
@@ -819,12 +1017,8 @@
             arWrapper.emit('targetFound');
           }
         } else if (currentMode === MODES.THREED) {
-          // --- 3D MODE (Immediate Visibility + 360° Touch Rotate) ---
-          has3DUnlocked = true;
-
-          if (statusPill) statusPill.className = 'status-pill threed-active';
-          if (statusText) statusText.textContent = 'SJ 3D Card';
-          if (reticle) reticle.classList.add('hidden');
+          // --- 3D MODE (3-Second Card Confirmation & Lifecycle Manager) ---
+          isCardInView = true;
 
           if (threedWrapper) {
             threedWrapper.setAttribute('visible', 'true');
@@ -832,21 +1026,17 @@
               threedWrapper.object3D.visible = true;
               threedWrapper.object3D.scale.set(1, 1, 1);
             }
-            threedWrapper.emit('threedFound');
-
-            // Trigger animations on models
-            const models = threedWrapper.querySelectorAll('[play-all-animations]');
-            models.forEach((m) => {
-              const comp = m.components['play-all-animations'];
-              if (comp) comp.playAnimations();
-            });
           }
 
-          if (gestureHint) {
-            gestureHint.classList.remove('hidden');
-            setTimeout(() => {
-              if (gestureHint) gestureHint.classList.add('hidden');
-            }, 4500);
+          if (threedState === THREED_STATE.SEARCHING_INITIAL ||
+              threedState === THREED_STATE.WAITING_FOR_CARD_1MIN ||
+              threedState === THREED_STATE.REQUIRE_RESCAN) {
+            // Start continuous 3-second card confirmation
+            start3SecondConfirmation(() => {
+              handleCardConfirmed();
+            });
+          } else if (threedState === THREED_STATE.ACTIVE_BUILDING) {
+            // During 20s background process, card in frame is noted but user explores undisturbed
           }
         }
       });
@@ -854,8 +1044,7 @@
       targetEntity.addEventListener('targetLost', () => {
         if (currentMode === MODES.AR) {
           // --- AR MODE: Hide models when card is lost ---
-          if (statusPill) statusPill.className = 'status-pill searching';
-          if (statusText) statusText.textContent = 'Scan SJ AR Card';
+          updateStatusPill('searching', 'Scan SJ AR Card');
           if (reticle) reticle.classList.remove('hidden');
 
           if (arWrapper) {
@@ -863,8 +1052,29 @@
             if (arWrapper.object3D) arWrapper.object3D.visible = false;
           }
         } else if (currentMode === MODES.THREED) {
-          // --- 3D MODE: When card leaves frame, keep 3D models visible and interactive! ---
-          if (has3DUnlocked) {
+          // --- 3D MODE: Card absence is completely acceptable ---
+          isCardInView = false;
+          clear3SecondConfirmation();
+
+          if (threedState === THREED_STATE.SEARCHING_INITIAL) {
+            updateStatusPill('searching', 'Point camera at Card');
+          } else if (threedState === THREED_STATE.ACTIVE_BUILDING) {
+            // Keep 3D models visible! Status stays "Card Found"
+            targetEntity.object3D.visible = true;
+            if (threedWrapper) {
+              threedWrapper.setAttribute('visible', 'true');
+              if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
+            }
+          } else if (threedState === THREED_STATE.WAITING_FOR_CARD_1MIN) {
+            // 1-minute countdown continues in background
+            targetEntity.object3D.visible = true;
+            if (threedWrapper) {
+              threedWrapper.setAttribute('visible', 'true');
+              if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
+            }
+          } else if (threedState === THREED_STATE.REQUIRE_RESCAN) {
+            // Status remains "Scan card again"
+            updateStatusPill('warning', 'Scan card again');
             targetEntity.object3D.visible = true;
             if (threedWrapper) {
               threedWrapper.setAttribute('visible', 'true');
