@@ -32,8 +32,7 @@ if ($Port -eq 5000) {
     Write-Host " - Press SPACEBAR or tap the Status Pill to toggle card." -ForegroundColor Gray
 } else {
     Write-Host " [NORMAL SCANNING MODE ACTIVE - Port $Port]" -ForegroundColor White
-    Write-Host " - Real camera and card tracking (same as live production)." -ForegroundColor Gray
-    Write-Host " - For Card Detection Bypass, run .\server_dev.bat (Port 5000)." -ForegroundColor Gray
+    Write-Host " - Real camera and physical card tracking (same as live production)." -ForegroundColor Gray
 }
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "Press Ctrl+C to stop the server.`n" -ForegroundColor DarkGray
