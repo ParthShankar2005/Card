@@ -145,22 +145,17 @@ body {
   width: 100%;
   height: 100%;
   background: url('../assets/AR/shivam_diamond_white.png') center / contain no-repeat;
-  -webkit-clip-path: inset(calc(100% - var(--loading-progress, 0%)) 0 0 0);
   clip-path: inset(calc(100% - var(--loading-progress, 0%)) 0 0 0);
-  transition: -webkit-clip-path 0.05s linear, clip-path 0.05s linear;
+  transition: clip-path 0.05s linear;
 }
 
-/* Ensure video feed is properly layered behind canvas and visible on Android & iOS */
+/* Ensure video feed is properly layered behind canvas and visible */
 video {
   position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
   z-index: 1 !important;
   pointer-events: none;
-  object-fit: cover !important;
-  background: transparent !important;
+  object-fit: cover;
+  background: #000000 !important;
 }
 
 /* A-Frame scene and WebGL Canvas layer */
@@ -219,7 +214,7 @@ a-scene {
 }
 
 /* ==========================================================================
-   2. TOP BAR (STATUS PILL ON LEFT, MODE SWITCHER IN CENTER, LOGO ON RIGHT)
+   2. TOP BAR (STATUS PILL ON LEFT, LOGO ON RIGHT)
    ========================================================================== */
 #app-header {
   position: absolute;
@@ -230,12 +225,11 @@ a-scene {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 18px;
+  padding: 0 20px;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   pointer-events: none;
-  gap: 8px;
 }
 
 /* Status Pill Indicator (Floating Left) */
@@ -274,40 +268,15 @@ a-scene {
   box-shadow: 0 0 10px var(--sj-warning-glow);
 }
 
-.status-pill.tracking,
-.status-pill.threed-active {
+.status-pill.tracking {
   background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.45);
+  border-color: rgba(16, 185, 129, 0.4);
   color: #a7f3d0;
 }
 
-.status-pill.tracking .status-dot,
-.status-pill.threed-active .status-dot {
-  background: #10b981;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.85);
-}
-
-.status-pill.scanning {
-  background: rgba(14, 165, 233, 0.2);
-  border-color: rgba(14, 165, 233, 0.55);
-  color: #bae6fd;
-}
-
-.status-pill.scanning .status-dot {
-  background: #0ea5e9;
-  box-shadow: 0 0 14px rgba(14, 165, 233, 0.95);
-  animation: pulse-dot 0.6s infinite alternate ease-in-out;
-}
-
-.status-pill.warning {
-  background: rgba(245, 158, 11, 0.18);
-  border-color: rgba(245, 158, 11, 0.55);
-  color: #fde68a;
-}
-
-.status-pill.warning .status-dot {
-  background: #f59e0b;
-  box-shadow: 0 0 12px rgba(245, 158, 11, 0.9);
+.status-pill.tracking .status-dot {
+  background: var(--sj-success);
+  box-shadow: 0 0 12px var(--sj-success-glow);
 }
 
 @keyframes pulse-dot {
@@ -322,39 +291,6 @@ a-scene {
   }
 }
 
-/* Header Mode Switcher Button */
-.header-mode-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  color: #ffffff;
-  background: linear-gradient(135deg, rgba(51, 75, 130, 0.85), rgba(18, 28, 51, 0.95));
-  border: 1px solid rgba(130, 178, 223, 0.4);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  cursor: pointer;
-  pointer-events: auto;
-  transition: var(--transition-fast);
-  white-space: nowrap;
-}
-
-.header-mode-btn:hover {
-  background: linear-gradient(135deg, rgba(74, 105, 179, 0.95), rgba(30, 48, 86, 0.98));
-  border-color: var(--sj-diamond-ice);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(51, 75, 130, 0.5);
-}
-
-.header-mode-btn:active {
-  transform: scale(0.96);
-}
-
 /* Brand Logo (Floating Right Corner) */
 .brand-badge {
   display: flex;
@@ -363,7 +299,6 @@ a-scene {
   padding: 2px 4px;
   pointer-events: auto;
   transition: transform var(--transition-fast);
-  flex-shrink: 0;
 }
 
 .brand-badge:hover {
@@ -401,8 +336,8 @@ a-scene {
   display: none !important;
 }
 
-/* Translucent Shivam Jewels Target Preview Overlay */
-.card-target-preview-wrapper {
+/* Translucent Shivam Jewels Target Preview Overlay (Stable, No Pulse) */
+.qr-target-preview-wrapper {
   width: min(68vw, 220px);
   height: min(68vw, 220px);
   border-radius: 16px;
@@ -416,7 +351,7 @@ a-scene {
   border: 1px solid rgba(130, 178, 223, 0.35);
 }
 
-.card-target-preview-img {
+.qr-target-preview-img {
   width: 90%;
   height: 90%;
   object-fit: contain;
@@ -442,210 +377,12 @@ a-scene {
 }
 
 /* ==========================================================================
-   4. 3D GESTURE INTERACTION HINT
-   ========================================================================== */
-.gesture-hint {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(201, 169, 110, 0.35);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 15px rgba(201, 169, 110, 0.2);
-  color: var(--sj-gold-light);
-  padding: 9px 18px;
-  border-radius: var(--radius-pill);
-  font-size: 0.82rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 60;
-  pointer-events: none;
-  animation: fadeInBounce 1s ease-out;
-  white-space: nowrap;
-}
-
-.gesture-hint.hidden {
-  display: none !important;
-  opacity: 0;
-}
-
-@keyframes fadeInBounce {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 15px);
-  }
-
-  60% {
-    opacity: 1;
-    transform: translate(-50%, -4px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-
-/* ==========================================================================
-   4B. 3D CONTROL MODE TOGGLE BUTTON (BOTTOM RIGHT FAB)
-   ========================================================================== */
-.control-toggle-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 15px;
-  background: linear-gradient(135deg, rgba(30, 48, 88, 0.88) 0%, rgba(10, 18, 36, 0.94) 100%);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(130, 178, 223, 0.45);
-  border-radius: var(--radius-pill);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(130, 178, 223, 0.25);
-  color: #ffffff;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  z-index: 100;
-  outline: none;
-  transition: transform 0.25s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.control-toggle-btn:hover {
-  transform: translateY(-2px);
-  border-color: var(--sj-diamond-ice);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 20px rgba(179, 217, 255, 0.4);
-}
-
-.control-toggle-btn:active {
-  transform: scale(0.94);
-}
-
-.control-toggle-btn.mode-touch {
-  background: linear-gradient(135deg, rgba(88, 65, 30, 0.9) 0%, rgba(36, 25, 10, 0.95) 100%);
-  border-color: rgba(201, 169, 110, 0.6);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(201, 169, 110, 0.3);
-  color: var(--sj-gold-light);
-}
-
-.control-toggle-btn.mode-touch:hover {
-  border-color: var(--sj-gold-primary);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 20px rgba(201, 169, 110, 0.45);
-}
-
-.control-toggle-icon {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.control-toggle-btn:active .control-toggle-icon {
-  transform: rotate(180deg);
-}
-
-.control-toggle-text {
-  font-family: inherit;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.control-toggle-btn.hidden {
-  display: none !important;
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ==========================================================================
-   5. MODE SELECTION MODAL
-   ========================================================================== */
-.mode-select-modal-card {
-  width: min(92%, 390px);
-}
-
-.mode-options-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  width: 100%;
-  margin-top: 4px;
-}
-
-.mode-btn-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 12px;
-  gap: 10px;
-  background: linear-gradient(135deg, rgba(51, 75, 130, 0.45) 0%, rgba(18, 28, 51, 0.75) 100%);
-  border: 1px solid rgba(130, 178, 223, 0.35);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
-  color: var(--sj-text-main);
-  transition: var(--transition-fast);
-  outline: none;
-}
-
-.mode-btn-card:hover {
-  background: linear-gradient(135deg, var(--sj-navy-primary) 0%, var(--sj-navy-dark) 100%);
-  border-color: var(--sj-diamond-ice);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(51, 75, 130, 0.55);
-}
-
-.mode-btn-card:active {
-  transform: scale(0.96);
-}
-
-.mode-btn-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--sj-navy-primary), var(--sj-navy-dark));
-  border: 1px solid rgba(130, 178, 223, 0.35);
-  box-shadow: 0 4px 14px rgba(51, 75, 130, 0.4);
-  color: #ffffff;
-  font-size: 1.25rem;
-}
-
-.mode-btn-title {
-  font-size: 1.02rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #ffffff;
-}
-
-.mode-btn-sub {
-  font-size: 0.72rem;
-  color: var(--sj-diamond-light);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-/* ==========================================================================
-   6. MODALS & CAMERA PERMISSION GUIDANCE
+   4. MODALS & CAMERA PERMISSION GUIDANCE
    ========================================================================== */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(14, 23, 44, 0.94) 0%, rgba(6, 11, 23, 0.98) 100%);
+  background: radial-gradient(circle at center, rgba(14, 23, 44, 0.92) 0%, rgba(6, 11, 23, 0.98) 100%);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   z-index: 999;
@@ -800,25 +537,20 @@ a-scene {
 }
 
 /* ==========================================================================
-   7. MOBILE-FIRST RESPONSIVE DESIGN & MEDIA QUERIES
+   5. MOBILE-FIRST RESPONSIVE DESIGN & MEDIA QUERIES
    ========================================================================== */
 @media (max-width: 640px) {
   #app-header {
-    top: 12px;
-    padding: 0 12px;
+    top: 14px;
+    padding: 0 14px;
   }
 
   .brand-badge-logo {
-    height: 18px;
+    height: 20px;
   }
 
   .status-pill {
-    font-size: 0.72rem;
-    padding: 5px 9px;
-  }
-
-  .header-mode-btn {
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     padding: 5px 10px;
   }
 
@@ -828,42 +560,12 @@ a-scene {
 
   .scanning-label {
     font-size: 0.74rem;
-    padding: 6px 14px;
-  }
-
-  .gesture-hint {
-    bottom: 18px;
-    font-size: 0.74rem;
-    padding: 7px 14px;
+    padding: 6px 16px;
   }
 
   .modal-card {
-    padding: 24px 16px;
+    padding: 24px 18px;
     gap: 14px;
-  }
-
-  .mode-select-modal-card {
-    width: min(94%, 360px);
-    padding: 24px 14px;
-  }
-
-  .mode-btn-card {
-    padding: 16px 8px;
-    gap: 8px;
-  }
-
-  .mode-btn-icon {
-    width: 42px;
-    height: 42px;
-    font-size: 1.15rem;
-  }
-
-  .mode-btn-title {
-    font-size: 0.92rem;
-  }
-
-  .mode-btn-sub {
-    font-size: 0.68rem;
   }
 
   .modal-title {
