@@ -147,91 +147,39 @@
     });
 
     // First-Person 360 Camera Look & Device Orientation Controller for 3D Mode
+    // First-Person 360 Camera Look & Anti-Shake Gyroscope Controller for 3D Mode
     AFRAME.registerComponent('touch-rotate', {
       init: function () {
         this.isDragging = false;
         this.previousX = 0;
         this.previousY = 0;
-        this.camYaw = 0;   // Horizontal camera angle in degrees (0 = front facing fixed assets)
-        this.camPitch = 0; // Vertical camera angle in degrees
+        this.camYaw = 0;          // Base horizontal yaw angle in degrees
+        this.camPitch = 0;        // Base vertical pitch angle in degrees
+        this.targetYaw = 0;       // Target yaw for smooth interpolation
+        this.targetPitch = 0;     // Target pitch for smooth interpolation
+        this.currentYaw = 0;      // Smoothed current yaw
+        this.currentPitch = 0;    // Smoothed current pitch
         this.currentScale = 1.0;
         this.initialPinchDist = 0;
-        this.rotationSpeed = 0.4;
-        this.autoRotateSpeed = 0.15;
+        this.rotationSpeed = 0.35;
         this.lastInteractTime = performance.now();
         this.initialAlpha = null;
+        this.lastGyroDelta = 0;
 
         const getCameraEl = () => document.getElementById('main-camera');
 
-        const updateCameraRotation = () => {
-          const cameraEl = getCameraEl();
-          if (cameraEl && cameraEl.object3D) {
-            cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(this.camYaw);
-            cameraEl.object3D.rotation.x = THREE.MathUtils.degToRad(this.camPitch);
-            cameraEl.object3D.rotation.z = 0;
-          }
-        };
-
         const onPointerDown = (e) => {
-          if (currentMode !== MODES.THREED || !has3DUnlocked) return;
-          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
-
-          if (e.touches && e.touches.length === 2) {
-            // Two-finger pinch gesture start
-            this.isDragging = false;
-            const dx = e.touches[0].clientX - e.touches[1].clientX;
-            const dy = e.touches[0].clientY - e.touches[1].clientY;
-            this.initialPinchDist = Math.hypot(dx, dy);
-            return;
-          }
-
-          this.isDragging = true;
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          this.previousX = clientX;
-          this.previousY = clientY;
-          this.lastInteractTime = performance.now();
+          // [TESTING] Touch drag temporarily disabled to isolate Gyroscope testing
+          return;
         };
 
         const onPointerMove = (e) => {
-          if (currentMode !== MODES.THREED) return;
-
-          // Handle Two-Finger Pinch Zoom on Mobile
-          if (e.touches && e.touches.length === 2 && this.initialPinchDist > 0) {
-            const dx = e.touches[0].clientX - e.touches[1].clientX;
-            const dy = e.touches[0].clientY - e.touches[1].clientY;
-            const newDist = Math.hypot(dx, dy);
-            const scaleDelta = (newDist - this.initialPinchDist) * 0.005;
-            this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + scaleDelta));
-            this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
-            this.initialPinchDist = newDist;
-            this.lastInteractTime = performance.now();
-            return;
-          }
-
-          if (!this.isDragging) return;
-
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          const deltaX = clientX - this.previousX;
-          const deltaY = clientY - this.previousY;
-
-          this.previousX = clientX;
-          this.previousY = clientY;
-          this.lastInteractTime = performance.now();
-
-          // Camera Look: Moving mouse/touch rotates camera angle in 360 degrees
-          this.camYaw = (this.camYaw - deltaX * this.rotationSpeed) % 360;
-          this.camPitch = Math.max(-60, Math.min(60, this.camPitch + deltaY * (this.rotationSpeed * 0.45)));
-
-          updateCameraRotation();
+          // [TESTING] Touch drag temporarily disabled to isolate Gyroscope testing
+          return;
         };
 
         const onPointerUp = (e) => {
-          if (!e.touches || e.touches.length === 0) {
-            this.isDragging = false;
-            this.initialPinchDist = 0;
-          }
+          this.isDragging = false;
         };
 
         // Mouse Wheel Scroll Zoom In / Zoom Out
@@ -253,15 +201,18 @@
           if (now - lastTapTime < 300) {
             this.camYaw = 0;
             this.camPitch = 0;
+            this.targetYaw = 0;
+            this.targetPitch = 0;
+            this.lastGyroDelta = 0;
+            this.initialAlpha = null;
             this.currentScale = 1.0;
-            updateCameraRotation();
             this.el.setAttribute('scale', '1 1 1');
             this.lastInteractTime = performance.now();
           }
           lastTapTime = now;
         };
 
-        // Device Orientation (Phone Physical 360° Turning & Gyroscope Look)
+        // Device Orientation (Phone Physical 360° Turning & Gyroscope Look with Anti-Shake Filter)
         window.addEventListener('deviceorientation', (event) => {
           console.log('GYRO:', {
             alpha: event.alpha,
@@ -269,20 +220,22 @@
             gamma: event.gamma
           });
 
-          if (currentMode !== MODES.THREED || !has3DUnlocked || this.isDragging) return;
+          if (currentMode !== MODES.THREED || !has3DUnlocked) return;
           if (event.alpha === null || event.alpha === undefined) return;
 
           if (this.initialAlpha === null) {
             this.initialAlpha = event.alpha;
           }
+
           // Relative heading delta around Y-axis (Turning phone left/right/behind in room)
           const deltaHeading = (event.alpha - this.initialAlpha);
-          if (Math.abs(deltaHeading) > 0.5) {
-            const cameraEl = getCameraEl();
-            if (cameraEl && cameraEl.object3D) {
-              const effectiveYaw = this.camYaw + deltaHeading;
-              cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(effectiveYaw);
-            }
+
+          // Direct Gyroscope Target Yaw
+          this.targetYaw = deltaHeading;
+
+          // Vertical Pitch tilt from beta
+          if (event.beta !== null && event.beta !== undefined) {
+            this.targetPitch = Math.max(-60, Math.min(60, (event.beta - 50)));
           }
         }, { passive: true });
 
@@ -311,6 +264,24 @@
           window.addEventListener('click', requestGyroPermission, { once: true });
           window.addEventListener('touchend', requestGyroPermission, { once: true });
         }
+      },
+
+      // Butter-smooth 60fps frame-rate independent interpolation loop (Eliminates all shaking)
+      tick: function (t, dt) {
+        if (currentMode !== MODES.THREED || !has3DUnlocked) return;
+        if (!dt) return;
+
+        const cameraEl = document.getElementById('main-camera');
+        if (cameraEl && cameraEl.object3D) {
+          // Smooth exponential damping factor (LERP)
+          const lerpFactor = Math.min(1.0, (dt / 1000) * 10.0);
+          this.currentYaw = THREE.MathUtils.lerp(this.currentYaw, this.targetYaw, lerpFactor);
+          this.currentPitch = THREE.MathUtils.lerp(this.currentPitch, this.targetPitch, lerpFactor);
+
+          cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentYaw);
+          cameraEl.object3D.rotation.x = THREE.MathUtils.degToRad(this.currentPitch);
+          cameraEl.object3D.rotation.z = 0;
+        }
       }
     });
   }
@@ -327,7 +298,7 @@
 
   function start3SecondConfirmation(onSuccess) {
     clearConfirmationTimer();
-    updateStatusPill('scanning', 'Scanning Card... (Hold 3s)');
+    updateStatusPill('scanning', 'Scanning...');
 
     cardConfirmTimer = setTimeout(() => {
       cardConfirmTimer = null;
@@ -805,7 +776,7 @@
   };
 
   // ==========================================================================
-  // 6. DIAMOND LOADING SCREEN CONTROLLER
+  // 6. REAL ASSET LOADING & DIAMOND FILL CONTROLLER (NOT PER SECONDS)
   // ==========================================================================
   function setupLoadingScreen(onComplete) {
     const loadingScreen = document.getElementById('loading-screen');
@@ -816,81 +787,93 @@
       return;
     }
 
+    const assetsToLoad = [
+      { url: './assets/glb/Ring.glb', type: 'fetch' },
+      { url: './assets/glb/Shivam.glb', type: 'fetch' },
+      { url: './assets/AR/shivam_banner.png', type: 'image' },
+      { url: './assets/AR/shivam_logo.png', type: 'image' },
+      { url: './assets/AR/Booth.png', type: 'image' },
+      { url: './assets/cards/targets.png', type: 'image' },
+      { url: './assets/targets.mind', type: 'fetch' }
+    ];
+
+    const totalWeight = assetsToLoad.length + 1; // +1 for A-Frame WebGL Scene ready
+    let loadedCount = 0;
+    let targetProgress = 0;
+    let currentDisplayProgress = 0;
     let isFinished = false;
 
-    const updateUI = (progress) => {
-      const pct = Math.min(100, Math.max(0, progress));
+    const updateUI = (pct) => {
       if (diamondFill) {
-        diamondFill.style.setProperty('--loading-progress', `${pct}%`);
+        diamondFill.style.setProperty('--loading-progress', `${pct.toFixed(1)}%`);
       }
     };
 
-    const startTime = performance.now();
-    const duration = 13000; // ~13.0 seconds staged game-like loading duration
+    const onItemLoaded = () => {
+      loadedCount++;
+      targetProgress = Math.min(100, (loadedCount / totalWeight) * 100);
+    };
 
-    const checkpoints = [
-      { t: 0.00, p: 0 },
-      { t: 0.06, p: 10 },
-      { t: 0.20, p: 10 },
-      { t: 0.28, p: 40 },
-      { t: 0.42, p: 40 },
-      { t: 0.49, p: 55 },
-      { t: 0.61, p: 55 },
-      { t: 0.69, p: 80 },
-      { t: 0.80, p: 80 },
-      { t: 0.86, p: 95 },
-      { t: 0.95, p: 95 },
-      { t: 0.97, p: 100 },
-      { t: 1.00, p: 100 }
-    ];
+    // Smooth 60fps interpolation for natural visual diamond filling
+    function stepProgress() {
+      // Smoothly advance displayed percentage towards actual asset download progress
+      currentDisplayProgress += (targetProgress - currentDisplayProgress) * 0.15;
 
-    function calculateProgress(ratio) {
-      if (ratio <= 0) return 0;
-      if (ratio >= 1) return 100;
-      for (let i = 0; i < checkpoints.length - 1; i++) {
-        const c1 = checkpoints[i];
-        const c2 = checkpoints[i + 1];
-        if (ratio >= c1.t && ratio <= c2.t) {
-          if (c1.p === c2.p) return c1.p;
-          const localRatio = (ratio - c1.t) / (c2.t - c1.t);
-          const ease = localRatio < 0.5
-            ? 2 * localRatio * localRatio
-            : 1 - Math.pow(-2 * localRatio + 2, 2) / 2;
-          return c1.p + (c2.p - c1.p) * ease;
-        }
-      }
-      return 100;
-    }
-
-    function animateProgress(now) {
-      const elapsed = now - startTime;
-      const timeRatio = Math.min(1, elapsed / duration);
-
-      const targetProgress = calculateProgress(timeRatio);
-      updateUI(targetProgress);
-
-      if (timeRatio >= 1 && !isFinished) {
-        isFinished = true;
+      if (targetProgress >= 100 && (100 - currentDisplayProgress) < 0.5) {
+        currentDisplayProgress = 100;
         updateUI(100);
 
-        setTimeout(() => {
-          loadingScreen.classList.add('fade-out');
-
-          if (typeof onComplete === 'function') {
-            onComplete();
-          }
-
+        if (!isFinished) {
+          isFinished = true;
           setTimeout(() => {
-            loadingScreen.style.display = 'none';
-          }, 550);
-        }, 200);
+            loadingScreen.classList.add('fade-out');
+            if (typeof onComplete === 'function') onComplete();
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 600);
+          }, 300);
+        }
         return;
       }
 
-      requestAnimationFrame(animateProgress);
+      updateUI(currentDisplayProgress);
+      requestAnimationFrame(stepProgress);
     }
 
-    requestAnimationFrame(animateProgress);
+    requestAnimationFrame(stepProgress);
+
+    // Track A-Frame Scene initialization
+    const arScene = document.getElementById('ar-scene');
+    if (arScene) {
+      if (arScene.hasLoaded) {
+        onItemLoaded();
+      } else {
+        arScene.addEventListener('loaded', onItemLoaded, { once: true });
+      }
+    } else {
+      onItemLoaded();
+    }
+
+    // Preload & track all actual network assets
+    assetsToLoad.forEach((asset) => {
+      if (asset.type === 'image') {
+        const img = new Image();
+        img.onload = onItemLoaded;
+        img.onerror = onItemLoaded;
+        img.src = asset.url;
+      } else {
+        fetch(asset.url)
+          .then(() => onItemLoaded())
+          .catch(() => onItemLoaded());
+      }
+    });
+
+    // Failsafe timeout in case of network stall so user is never blocked
+    setTimeout(() => {
+      if (!isFinished) {
+        targetProgress = 100;
+      }
+    }, 15000);
   }
 
   // ==========================================================================
