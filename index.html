@@ -123,9 +123,20 @@
        5. 3D GESTURE INTERACTION HINT (FOR 3D MODE)
        ========================================================================== -->
   <div id="gesture-hint" class="gesture-hint hidden">
-    <i class="fas fa-hand-pointer"></i>
-    <span>Drag anywhere to rotate 3D view</span>
+    <i class="fas fa-compass"></i>
+    <span id="gesture-hint-text">Gyro Mode Active — Turn phone to explore</span>
   </div>
+
+  <!-- ==========================================================================
+       5B. 3D CONTROL MODE TOGGLE BUTTON (BOTTOM RIGHT FAB)
+       ========================================================================== -->
+  <button id="btn-control-toggle" class="control-toggle-btn hidden" onclick="handleToggleControlMode()"
+    title="Switch between Gyroscope and Touch Mode">
+    <div class="control-toggle-icon" id="control-toggle-icon">
+      <i class="fas fa-compass"></i>
+    </div>
+    <span class="control-toggle-text" id="control-toggle-text">Gyro</span>
+  </button>
 
   <!-- ==========================================================================
        6. MAIN A-FRAME SCENE CONTAINER (AR & 3D MODES)

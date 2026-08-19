@@ -50,6 +50,15 @@
   let background30SecTimer = null;
 
   // ==========================================================================
+  // 3D CONTROL MODES (GYROSCOPE 360° vs MANUAL TOUCH GESTURES)
+  // ==========================================================================
+  const CONTROL_MODES = {
+    GYRO: 'GYRO',   // Pure Gyroscope & Compass 360° Look (Touch Drag Paused)
+    TOUCH: 'TOUCH'  // Pure Touch Drag & Pinch Zoom (Gyro Sensor Paused)
+  };
+  let active3DControlMode = CONTROL_MODES.GYRO;
+
+  // ==========================================================================
   // 2. A-FRAME CUSTOM COMPONENTS
   // ==========================================================================
   if (typeof AFRAME !== 'undefined') {
@@ -146,8 +155,7 @@
       }
     });
 
-    // First-Person 360 Camera Look & Device Orientation Controller for 3D Mode
-    // First-Person True 360° Camera Look & High-Sensitivity Gyroscope Controller for 3D Mode
+    // First-Person True 360° Spatial Camera (6-DOF Dolly Zoom & High-Sensitivity Gyro) for 3D Mode
     AFRAME.registerComponent('touch-rotate', {
       init: function () {
         this.isDragging = false;
@@ -159,7 +167,8 @@
         this.targetPitch = 0;     // Target pitch (full up/down)
         this.currentYaw = 0;      // Current smoothed yaw
         this.currentPitch = 0;    // Current smoothed pitch
-        this.currentScale = 0.75; // Default 30% further viewing scale
+        this.targetDolly = 0;     // Target Camera Dolly distance in meters (Closer/Further)
+        this.currentDolly = 0;    // Smoothed Camera Dolly distance
         this.initialPinchDist = 0;
         this.rotationSpeed = 0.4;
         this.initialHeading = null; // Baseline compass heading at moment of scan
@@ -179,17 +188,33 @@
           this.targetPitch = 0;
           this.currentYaw = 0;
           this.currentPitch = 0;
+          this.targetDolly = 0;
+          this.currentDolly = 0;
           const cameraEl = getCameraEl();
           if (cameraEl && cameraEl.object3D) {
             cameraEl.object3D.rotation.set(0, 0, 0);
+            cameraEl.object3D.position.set(0, 0, 0);
           }
-          console.log("[Gyroscope] Calibrated directly on card normal with compass. Zero orientation locked.");
+          console.log("[Spatial Camera] Calibrated directly on card normal with compass. Zero orientation locked.");
+        };
+
+        // Synchronizes gyro baseline when switching back to Gyro mode from Touch mode
+        this.syncGyroBaseline = () => {
+          if (this.lastHeading !== null) {
+            this.initialHeading = this.lastHeading - this.targetYaw;
+          }
+          if (this.lastBeta !== null) {
+            this.initialBeta = this.lastBeta - this.targetPitch;
+          }
+          this.camYaw = 0;
+          this.camPitch = 0;
         };
 
         const onPointerDown = (e) => {
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
-          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
+          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay') || e.target.closest('#btn-control-toggle')) return;
 
+          // Two-Finger Pinch Gesture Start
           if (e.touches && e.touches.length === 2) {
             this.isDragging = false;
             const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -198,29 +223,33 @@
             return;
           }
 
-          this.isDragging = true;
-          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-          this.previousX = clientX;
-          this.previousY = clientY;
+          // In Touch Mode: Enable drag rotation
+          if (active3DControlMode === CONTROL_MODES.TOUCH) {
+            this.isDragging = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            this.previousX = clientX;
+            this.previousY = clientY;
+          }
         };
 
         const onPointerMove = (e) => {
           if (currentMode !== MODES.THREED) return;
 
-          // Two-Finger Pinch Zoom on Mobile
+          // Blender-style Spatial Dolly Zoom (Pinch Spread = Dolly In / Pinch Close = Dolly Out)
           if (e.touches && e.touches.length === 2 && this.initialPinchDist > 0) {
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             const newDist = Math.hypot(dx, dy);
-            const scaleDelta = (newDist - this.initialPinchDist) * 0.005;
-            this.currentScale = Math.max(0.3, Math.min(2.5, this.currentScale + scaleDelta));
-            this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
+            const pinchDelta = (newDist - this.initialPinchDist) * 0.006;
+            // Dolly range: from close-up inspection (+0.8m) to wide full-world overview (-2.5m)
+            this.targetDolly = Math.max(-2.5, Math.min(0.85, this.targetDolly + pinchDelta));
             this.initialPinchDist = newDist;
             return;
           }
 
-          if (!this.isDragging) return;
+          // Drag Rotation: ONLY active in TOUCH Mode
+          if (active3DControlMode !== CONTROL_MODES.TOUCH || !this.isDragging) return;
 
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
           const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -234,7 +263,8 @@
           this.camYaw = (this.camYaw - deltaX * this.rotationSpeed) % 360;
           this.camPitch = Math.max(-88, Math.min(88, this.camPitch + deltaY * (this.rotationSpeed * 0.5)));
 
-          this.updateTargetRotation();
+          this.targetYaw = this.camYaw;
+          this.targetPitch = this.camPitch;
         };
 
         const onPointerUp = (e) => {
@@ -246,6 +276,8 @@
 
         // Computes True 360° Yaw and Full Elevation Pitch from compass and gyro
         this.updateTargetRotation = () => {
+          if (active3DControlMode !== CONTROL_MODES.GYRO) return;
+
           let gyroYawDelta = 0;
           let gyroPitchDelta = 0;
 
@@ -268,26 +300,22 @@
           this.targetPitch = Math.max(-88, Math.min(88, this.camPitch + gyroPitchDelta));
         };
 
-        // Mouse Wheel Scroll Zoom In / Zoom Out
+        // Mouse Wheel Spatial Camera Dolly In / Dolly Out
         const onWheel = (e) => {
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
           e.preventDefault();
-          const zoomDelta = -e.deltaY * 0.0015;
-          this.currentScale = Math.max(0.3, Math.min(2.5, this.currentScale + zoomDelta));
-          this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
+          const dollyDelta = -e.deltaY * 0.002;
+          this.targetDolly = Math.max(-2.5, Math.min(0.85, this.targetDolly + dollyDelta));
         };
 
-        // Double-click or Double-tap to reset camera look angle to center (0° front view)
+        // Double-click or Double-tap to reset camera look angle and distance to center
         let lastTapTime = 0;
         const onDoubleTap = (e) => {
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
-          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
+          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay') || e.target.closest('#btn-control-toggle')) return;
           const now = performance.now();
           if (now - lastTapTime < 300) {
             this.calibrateScanOrientation();
-            this.currentScale = 0.75;
-            this.el.setAttribute('scale', '0.75 0.75 0.75');
-            this.el.setAttribute('position', '0 0 -0.45');
           }
           lastTapTime = now;
         };
@@ -312,14 +340,16 @@
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
           if (heading === null || heading === undefined) return;
 
-          if (this.initialHeading === null) {
-            this.initialHeading = heading;
+          // Gyro orientation only updates target pose when GYRO mode is active
+          if (active3DControlMode === CONTROL_MODES.GYRO) {
+            if (this.initialHeading === null) {
+              this.initialHeading = heading;
+            }
+            if (this.initialBeta === null && event.beta !== null) {
+              this.initialBeta = event.beta;
+            }
+            this.updateTargetRotation();
           }
-          if (this.initialBeta === null && event.beta !== null) {
-            this.initialBeta = event.beta;
-          }
-
-          this.updateTargetRotation();
         }, { passive: true });
 
         window.addEventListener('mousedown', onPointerDown, { passive: true });
@@ -349,7 +379,7 @@
         }
       },
 
-      // High-frequency responsive 60fps frame-rate independent interpolation loop
+      // High-frequency responsive 60fps spatial camera loop (Dolly Zoom + 360 Rotation)
       tick: function (t, dt) {
         if (currentMode !== MODES.THREED || !has3DUnlocked) return;
         if (!dt) return;
@@ -360,10 +390,15 @@
           const lerpFactor = Math.min(1.0, (dt / 1000) * 16.0);
           this.currentYaw = THREE.MathUtils.lerp(this.currentYaw, this.targetYaw, lerpFactor);
           this.currentPitch = THREE.MathUtils.lerp(this.currentPitch, this.targetPitch, lerpFactor);
+          this.currentDolly = THREE.MathUtils.lerp(this.currentDolly, this.targetDolly, lerpFactor);
 
+          // 360 Rotation
           cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(this.currentYaw);
           cameraEl.object3D.rotation.x = THREE.MathUtils.degToRad(this.currentPitch);
           cameraEl.object3D.rotation.z = 0;
+
+          // Spatial 3D Camera Dolly (Moves closer to inspect models or dollies out to view full world)
+          cameraEl.object3D.position.z = -this.currentDolly;
         }
       }
     });
@@ -757,6 +792,58 @@
   }
 
   // ==========================================================================
+  // 4B. 3D CONTROL MODE CONTROLLER (GYRO vs TOUCH)
+  // ==========================================================================
+  window.handleToggleControlMode = function () {
+    active3DControlMode = (active3DControlMode === CONTROL_MODES.GYRO) ? CONTROL_MODES.TOUCH : CONTROL_MODES.GYRO;
+    updateControlModeUI(true);
+  };
+
+  function updateControlModeUI(showToast = false) {
+    const btn = document.getElementById('btn-control-toggle');
+    const icon = document.getElementById('control-toggle-icon');
+    const text = document.getElementById('control-toggle-text');
+    const gestureHint = document.getElementById('gesture-hint');
+    const gestureHintText = document.getElementById('gesture-hint-text');
+
+    if (!btn || !icon || !text) return;
+
+    if (active3DControlMode === CONTROL_MODES.GYRO) {
+      btn.className = 'control-toggle-btn';
+      icon.innerHTML = '<i class="fas fa-compass"></i>';
+      text.textContent = 'Gyro';
+      btn.title = 'Current: Gyroscope Mode (Tap to switch to Touch Mode)';
+
+      // Sync gyro baseline when switching back to Gyro
+      const threedWrapper = document.getElementById('threed-content-wrapper');
+      if (threedWrapper && threedWrapper.components['touch-rotate']) {
+        threedWrapper.components['touch-rotate'].syncGyroBaseline();
+      }
+
+      if (showToast && gestureHint && gestureHintText) {
+        const iconEl = gestureHint.querySelector('i');
+        if (iconEl) iconEl.className = 'fas fa-compass';
+        gestureHintText.textContent = 'Gyro Mode Active — Move phone to explore';
+        gestureHint.classList.remove('hidden');
+        setTimeout(() => gestureHint.classList.add('hidden'), 3200);
+      }
+    } else {
+      btn.className = 'control-toggle-btn mode-touch';
+      icon.innerHTML = '<i class="fas fa-hand-pointer"></i>';
+      text.textContent = 'Touch';
+      btn.title = 'Current: Touch Mode (Tap to switch to Gyroscope Mode)';
+
+      if (showToast && gestureHint && gestureHintText) {
+        const iconEl = gestureHint.querySelector('i');
+        if (iconEl) iconEl.className = 'fas fa-hand-pointer';
+        gestureHintText.textContent = 'Touch Mode Active — Drag to rotate & pinch to zoom';
+        gestureHint.classList.remove('hidden');
+        setTimeout(() => gestureHint.classList.add('hidden'), 3200);
+      }
+    }
+  }
+
+  // ==========================================================================
   // 5. MODE SWITCHER & SELECTION CONTROLLER
   // ==========================================================================
   window.handleOpenModeSelect = function () {
@@ -789,6 +876,10 @@
     if (selectedMode === 'AR') {
       currentMode = MODES.AR;
       if (modeLabel) modeLabel.textContent = 'AR Mode';
+
+      // Hide 3D Control Mode Toggle Button
+      const ctrlToggleBtn = document.getElementById('btn-control-toggle');
+      if (ctrlToggleBtn) ctrlToggleBtn.classList.add('hidden');
 
       // Clear 3D Lifecycle Timers & Unfreeze
       clearConfirmationTimer();
@@ -827,6 +918,13 @@
     } else if (selectedMode === 'THREED') {
       currentMode = MODES.THREED;
       if (modeLabel) modeLabel.textContent = '3D Mode';
+
+      // Show 3D Control Mode Toggle Button
+      const ctrlToggleBtn = document.getElementById('btn-control-toggle');
+      if (ctrlToggleBtn) {
+        ctrlToggleBtn.classList.remove('hidden');
+        updateControlModeUI();
+      }
 
       // Hide AR content
       if (arWrapper) {
