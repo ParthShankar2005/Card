@@ -1,5 +1,5 @@
 param (
-    [int]$Port = 4200
+    [int]$Port = 3000
 )
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path

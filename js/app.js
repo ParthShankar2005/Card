@@ -26,7 +26,7 @@
   };
 
   // Port 5000 is the offline Dev Bypass Mode for rapid model inspection
-  // Port 4200 and Production STRICTLY require a physical card scan (No URL link bypass)
+  // Port 3000 and Production STRICTLY require a physical card scan (No URL link bypass)
   const isBypassMode = window.location.port === '5000';
 
   let currentMode = MODES.LOADING;
@@ -153,33 +153,114 @@
         this.isDragging = false;
         this.previousX = 0;
         this.previousY = 0;
-        this.camYaw = 0;          // Base horizontal yaw angle in degrees
-        this.camPitch = 0;        // Base vertical pitch angle in degrees
-        this.targetYaw = 0;       // Target yaw for smooth interpolation
-        this.targetPitch = 0;     // Target pitch for smooth interpolation
-        this.currentYaw = 0;      // Smoothed current yaw
-        this.currentPitch = 0;    // Smoothed current pitch
+        this.camYaw = 0;          // Touch offset yaw
+        this.camPitch = 0;        // Touch offset pitch
+        this.targetYaw = 0;       // Target yaw
+        this.targetPitch = 0;     // Target pitch
+        this.currentYaw = 0;      // Current smoothed yaw
+        this.currentPitch = 0;    // Current smoothed pitch
         this.currentScale = 1.0;
         this.initialPinchDist = 0;
         this.rotationSpeed = 0.35;
-        this.lastInteractTime = performance.now();
-        this.initialAlpha = null;
-        this.lastGyroDelta = 0;
+        this.initialAlpha = null; // Baseline heading at moment of scan
+        this.initialBeta = null;  // Baseline pitch at moment of scan
+        this.lastAlpha = null;
+        this.lastBeta = null;
 
         const getCameraEl = () => document.getElementById('main-camera');
 
+        // Calibrates baseline sensor angles to zero out view at the exact scan moment
+        this.calibrateScanOrientation = () => {
+          this.initialAlpha = this.lastAlpha;
+          this.initialBeta = this.lastBeta;
+          this.camYaw = 0;
+          this.camPitch = 0;
+          this.targetYaw = 0;
+          this.targetPitch = 0;
+          this.currentYaw = 0;
+          this.currentPitch = 0;
+          const cameraEl = getCameraEl();
+          if (cameraEl && cameraEl.object3D) {
+            cameraEl.object3D.rotation.set(0, 0, 0);
+          }
+          console.log("[Gyroscope] Calibrated to scan angle. Zero orientation set.");
+        };
+
         const onPointerDown = (e) => {
-          // [TESTING] Touch drag temporarily disabled to isolate Gyroscope testing
-          return;
+          if (currentMode !== MODES.THREED || !has3DUnlocked) return;
+          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
+
+          if (e.touches && e.touches.length === 2) {
+            this.isDragging = false;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            this.initialPinchDist = Math.hypot(dx, dy);
+            return;
+          }
+
+          this.isDragging = true;
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          this.previousX = clientX;
+          this.previousY = clientY;
         };
 
         const onPointerMove = (e) => {
-          // [TESTING] Touch drag temporarily disabled to isolate Gyroscope testing
-          return;
+          if (currentMode !== MODES.THREED) return;
+
+          // Two-Finger Pinch Zoom on Mobile
+          if (e.touches && e.touches.length === 2 && this.initialPinchDist > 0) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const newDist = Math.hypot(dx, dy);
+            const scaleDelta = (newDist - this.initialPinchDist) * 0.005;
+            this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + scaleDelta));
+            this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
+            this.initialPinchDist = newDist;
+            return;
+          }
+
+          if (!this.isDragging) return;
+
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const deltaX = clientX - this.previousX;
+          const deltaY = clientY - this.previousY;
+
+          this.previousX = clientX;
+          this.previousY = clientY;
+
+          // Smooth touch look offset
+          this.camYaw = (this.camYaw - deltaX * this.rotationSpeed) % 360;
+          this.camPitch = Math.max(-60, Math.min(60, this.camPitch + deltaY * (this.rotationSpeed * 0.45)));
+
+          this.updateTargetRotation();
         };
 
         const onPointerUp = (e) => {
-          this.isDragging = false;
+          if (!e.touches || e.touches.length === 0) {
+            this.isDragging = false;
+            this.initialPinchDist = 0;
+          }
+        };
+
+        this.updateTargetRotation = () => {
+          let gyroYawDelta = 0;
+          let gyroPitchDelta = 0;
+
+          if (this.initialAlpha !== null && this.lastAlpha !== null) {
+            gyroYawDelta = (this.lastAlpha - this.initialAlpha);
+          }
+          if (this.initialBeta !== null && this.lastBeta !== null) {
+            gyroPitchDelta = (this.lastBeta - this.initialBeta);
+          }
+
+          // Small deadband to keep rock-solid straight on card normal
+          if (Math.abs(gyroYawDelta) < 0.6) gyroYawDelta = 0;
+          if (Math.abs(gyroPitchDelta) < 0.6) gyroPitchDelta = 0;
+
+          this.targetYaw = this.camYaw + gyroYawDelta;
+          this.targetPitch = Math.max(-60, Math.min(60, this.camPitch + gyroPitchDelta));
         };
 
         // Mouse Wheel Scroll Zoom In / Zoom Out
@@ -189,7 +270,6 @@
           const zoomDelta = -e.deltaY * 0.0015;
           this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + zoomDelta));
           this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
-          this.lastInteractTime = performance.now();
         };
 
         // Double-click or Double-tap to reset camera look angle to center (0° front view)
@@ -199,20 +279,14 @@
           if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
           const now = performance.now();
           if (now - lastTapTime < 300) {
-            this.camYaw = 0;
-            this.camPitch = 0;
-            this.targetYaw = 0;
-            this.targetPitch = 0;
-            this.lastGyroDelta = 0;
-            this.initialAlpha = null;
+            this.calibrateScanOrientation();
             this.currentScale = 1.0;
             this.el.setAttribute('scale', '1 1 1');
-            this.lastInteractTime = performance.now();
           }
           lastTapTime = now;
         };
 
-        // Device Orientation (Phone Physical 360° Turning & Gyroscope Look with Anti-Shake Filter)
+        // Device Orientation Event (Smooth relative look tracking)
         window.addEventListener('deviceorientation', (event) => {
           console.log('GYRO:', {
             alpha: event.alpha,
@@ -220,23 +294,21 @@
             gamma: event.gamma
           });
 
+          this.lastAlpha = event.alpha;
+          this.lastBeta = event.beta;
+
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
           if (event.alpha === null || event.alpha === undefined) return;
 
+          // If baseline not established yet, lock it right now to prevent any sudden rotation jump
           if (this.initialAlpha === null) {
             this.initialAlpha = event.alpha;
           }
-
-          // Relative heading delta around Y-axis (Turning phone left/right/behind in room)
-          const deltaHeading = (event.alpha - this.initialAlpha);
-
-          // Direct Gyroscope Target Yaw
-          this.targetYaw = deltaHeading;
-
-          // Vertical Pitch tilt from beta
-          if (event.beta !== null && event.beta !== undefined) {
-            this.targetPitch = Math.max(-60, Math.min(60, (event.beta - 50)));
+          if (this.initialBeta === null && event.beta !== null) {
+            this.initialBeta = event.beta;
           }
+
+          this.updateTargetRotation();
         }, { passive: true });
 
         window.addEventListener('mousedown', onPointerDown, { passive: true });
@@ -369,10 +441,20 @@
       targetEntity.components['freeze-on-lock'].lockCurrentPose();
     }
 
-    // 3. Transition state to ACTIVE_3D_LOOP
+    // 3. Reset camera and calibrate gyro baseline straight along the card normal (0, 0, 0)
+    const cameraEl = document.getElementById('main-camera');
+    if (cameraEl && cameraEl.object3D) {
+      cameraEl.object3D.rotation.set(0, 0, 0);
+    }
+    const threedWrapper = document.getElementById('threed-content-wrapper');
+    if (threedWrapper && threedWrapper.components['touch-rotate']) {
+      threedWrapper.components['touch-rotate'].calibrateScanOrientation();
+    }
+
+    // 4. Transition state to ACTIVE_3D_LOOP
     threedState = THREED_STATE.ACTIVE_3D_LOOP;
 
-    // 4. Start / Reset 30-Second Background Loop
+    // 5. Start / Reset 30-Second Background Loop
     start30SecondBackgroundLoop();
   }
 
