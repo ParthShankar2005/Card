@@ -147,7 +147,7 @@
     });
 
     // First-Person 360 Camera Look & Device Orientation Controller for 3D Mode
-    // First-Person 360 Camera Look & Anti-Shake Gyroscope Controller for 3D Mode
+    // First-Person True 360° Camera Look & High-Sensitivity Gyroscope Controller for 3D Mode
     AFRAME.registerComponent('touch-rotate', {
       init: function () {
         this.isDragging = false;
@@ -155,23 +155,23 @@
         this.previousY = 0;
         this.camYaw = 0;          // Touch offset yaw
         this.camPitch = 0;        // Touch offset pitch
-        this.targetYaw = 0;       // Target yaw
-        this.targetPitch = 0;     // Target pitch
+        this.targetYaw = 0;       // Target yaw (full 360°)
+        this.targetPitch = 0;     // Target pitch (full up/down)
         this.currentYaw = 0;      // Current smoothed yaw
         this.currentPitch = 0;    // Current smoothed pitch
-        this.currentScale = 1.0;
+        this.currentScale = 0.75; // Default 30% further viewing scale
         this.initialPinchDist = 0;
-        this.rotationSpeed = 0.35;
-        this.initialAlpha = null; // Baseline heading at moment of scan
-        this.initialBeta = null;  // Baseline pitch at moment of scan
-        this.lastAlpha = null;
+        this.rotationSpeed = 0.4;
+        this.initialHeading = null; // Baseline compass heading at moment of scan
+        this.initialBeta = null;    // Baseline pitch at moment of scan
+        this.lastHeading = null;
         this.lastBeta = null;
 
         const getCameraEl = () => document.getElementById('main-camera');
 
         // Calibrates baseline sensor angles to zero out view at the exact scan moment
         this.calibrateScanOrientation = () => {
-          this.initialAlpha = this.lastAlpha;
+          this.initialHeading = this.lastHeading;
           this.initialBeta = this.lastBeta;
           this.camYaw = 0;
           this.camPitch = 0;
@@ -183,7 +183,7 @@
           if (cameraEl && cameraEl.object3D) {
             cameraEl.object3D.rotation.set(0, 0, 0);
           }
-          console.log("[Gyroscope] Calibrated to scan angle. Zero orientation set.");
+          console.log("[Gyroscope] Calibrated directly on card normal with compass. Zero orientation locked.");
         };
 
         const onPointerDown = (e) => {
@@ -214,7 +214,7 @@
             const dy = e.touches[0].clientY - e.touches[1].clientY;
             const newDist = Math.hypot(dx, dy);
             const scaleDelta = (newDist - this.initialPinchDist) * 0.005;
-            this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + scaleDelta));
+            this.currentScale = Math.max(0.3, Math.min(2.5, this.currentScale + scaleDelta));
             this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
             this.initialPinchDist = newDist;
             return;
@@ -230,9 +230,9 @@
           this.previousX = clientX;
           this.previousY = clientY;
 
-          // Smooth touch look offset
+          // Smooth touch look offset (Full 360° range)
           this.camYaw = (this.camYaw - deltaX * this.rotationSpeed) % 360;
-          this.camPitch = Math.max(-60, Math.min(60, this.camPitch + deltaY * (this.rotationSpeed * 0.45)));
+          this.camPitch = Math.max(-88, Math.min(88, this.camPitch + deltaY * (this.rotationSpeed * 0.5)));
 
           this.updateTargetRotation();
         };
@@ -244,23 +244,28 @@
           }
         };
 
+        // Computes True 360° Yaw and Full Elevation Pitch from compass and gyro
         this.updateTargetRotation = () => {
           let gyroYawDelta = 0;
           let gyroPitchDelta = 0;
 
-          if (this.initialAlpha !== null && this.lastAlpha !== null) {
-            gyroYawDelta = (this.lastAlpha - this.initialAlpha);
+          if (this.initialHeading !== null && this.lastHeading !== null) {
+            gyroYawDelta = (this.lastHeading - this.initialHeading);
+            // Shortest rotational delta wrapping around 360°
+            while (gyroYawDelta > 180) gyroYawDelta -= 360;
+            while (gyroYawDelta < -180) gyroYawDelta += 360;
           }
+
           if (this.initialBeta !== null && this.lastBeta !== null) {
             gyroPitchDelta = (this.lastBeta - this.initialBeta);
           }
 
-          // Small deadband to keep rock-solid straight on card normal
-          if (Math.abs(gyroYawDelta) < 0.6) gyroYawDelta = 0;
-          if (Math.abs(gyroPitchDelta) < 0.6) gyroPitchDelta = 0;
+          // Sub-pixel threshold for instant, highly sensitive response
+          if (Math.abs(gyroYawDelta) < 0.05) gyroYawDelta = 0;
+          if (Math.abs(gyroPitchDelta) < 0.05) gyroPitchDelta = 0;
 
           this.targetYaw = this.camYaw + gyroYawDelta;
-          this.targetPitch = Math.max(-60, Math.min(60, this.camPitch + gyroPitchDelta));
+          this.targetPitch = Math.max(-88, Math.min(88, this.camPitch + gyroPitchDelta));
         };
 
         // Mouse Wheel Scroll Zoom In / Zoom Out
@@ -268,7 +273,7 @@
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
           e.preventDefault();
           const zoomDelta = -e.deltaY * 0.0015;
-          this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + zoomDelta));
+          this.currentScale = Math.max(0.3, Math.min(2.5, this.currentScale + zoomDelta));
           this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
         };
 
@@ -280,29 +285,35 @@
           const now = performance.now();
           if (now - lastTapTime < 300) {
             this.calibrateScanOrientation();
-            this.currentScale = 1.0;
-            this.el.setAttribute('scale', '1 1 1');
+            this.currentScale = 0.75;
+            this.el.setAttribute('scale', '0.75 0.75 0.75');
+            this.el.setAttribute('position', '0 0 -0.45');
           }
           lastTapTime = now;
         };
 
-        // Device Orientation Event (Smooth relative look tracking)
+        // True 360° Compass & Gyroscope Fusion Event Listener
         window.addEventListener('deviceorientation', (event) => {
           console.log('GYRO:', {
             alpha: event.alpha,
             beta: event.beta,
-            gamma: event.gamma
+            gamma: event.gamma,
+            compass: event.webkitCompassHeading
           });
 
-          this.lastAlpha = event.alpha;
+          // Accurate heading (using iOS WebKit compass heading when available or standard alpha)
+          const heading = (event.webkitCompassHeading !== undefined && event.webkitCompassHeading !== null)
+            ? (360 - event.webkitCompassHeading)
+            : event.alpha;
+
+          this.lastHeading = heading;
           this.lastBeta = event.beta;
 
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
-          if (event.alpha === null || event.alpha === undefined) return;
+          if (heading === null || heading === undefined) return;
 
-          // If baseline not established yet, lock it right now to prevent any sudden rotation jump
-          if (this.initialAlpha === null) {
-            this.initialAlpha = event.alpha;
+          if (this.initialHeading === null) {
+            this.initialHeading = heading;
           }
           if (this.initialBeta === null && event.beta !== null) {
             this.initialBeta = event.beta;
@@ -328,7 +339,7 @@
             DeviceOrientationEvent.requestPermission()
               .then((permissionState) => {
                 if (permissionState === 'granted') {
-                  console.log("[Gyroscope] iOS Sensor Permission Granted.");
+                  console.log("[Gyroscope] iOS Compass & Gyro Permission Granted.");
                 }
               })
               .catch(console.error);
@@ -338,15 +349,15 @@
         }
       },
 
-      // Butter-smooth 60fps frame-rate independent interpolation loop (Eliminates all shaking)
+      // High-frequency responsive 60fps frame-rate independent interpolation loop
       tick: function (t, dt) {
         if (currentMode !== MODES.THREED || !has3DUnlocked) return;
         if (!dt) return;
 
         const cameraEl = document.getElementById('main-camera');
         if (cameraEl && cameraEl.object3D) {
-          // Smooth exponential damping factor (LERP)
-          const lerpFactor = Math.min(1.0, (dt / 1000) * 10.0);
+          // Responsive 60fps damping factor (LERP)
+          const lerpFactor = Math.min(1.0, (dt / 1000) * 16.0);
           this.currentYaw = THREE.MathUtils.lerp(this.currentYaw, this.targetYaw, lerpFactor);
           this.currentPitch = THREE.MathUtils.lerp(this.currentPitch, this.targetPitch, lerpFactor);
 
@@ -401,14 +412,16 @@
       targetEntity.object3D.visible = true;
     }
 
-    // Creates NEW 3D Space (refreshes models & animations)
+    // Creates NEW 3D Space (30% further camera distance + refreshed models & animations)
     if (threedWrapper) {
       threedWrapper.setAttribute('visible', 'true');
+      threedWrapper.setAttribute('position', '0 0 -0.45');
+      threedWrapper.setAttribute('scale', '0.75 0.75 0.75');
       if (threedWrapper.object3D) {
         threedWrapper.object3D.visible = true;
-        threedWrapper.object3D.scale.set(1, 1, 1);
+        threedWrapper.object3D.position.set(0, 0, -0.45);
+        threedWrapper.object3D.scale.set(0.75, 0.75, 0.75);
       }
-      threedWrapper.setAttribute('scale', '1 1 1');
       threedWrapper.emit('threedFound');
 
       const models = threedWrapper.querySelectorAll('[play-all-animations]');
@@ -825,8 +838,13 @@
         // Already unlocked: directly show 3D world and start 30s background loop
         if (threedWrapper) {
           threedWrapper.setAttribute('visible', 'true');
-          if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
-          threedWrapper.setAttribute('scale', '1 1 1');
+          threedWrapper.setAttribute('position', '0 0 -0.45');
+          threedWrapper.setAttribute('scale', '0.75 0.75 0.75');
+          if (threedWrapper.object3D) {
+            threedWrapper.object3D.visible = true;
+            threedWrapper.object3D.position.set(0, 0, -0.45);
+            threedWrapper.object3D.scale.set(0.75, 0.75, 0.75);
+          }
         }
         updateStatusPill('threed-active', 'Card Found');
         start30SecondBackgroundLoop();
