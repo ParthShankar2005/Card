@@ -269,26 +269,17 @@ a-scene {
   box-shadow: 0 0 10px var(--sj-warning-glow);
 }
 
-.status-pill.tracking {
+.status-pill.tracking,
+.status-pill.threed-active {
   background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.45);
   color: #a7f3d0;
 }
 
-.status-pill.tracking .status-dot {
-  background: var(--sj-success);
-  box-shadow: 0 0 12px var(--sj-success-glow);
-}
-
-.status-pill.threed-active {
-  background: rgba(201, 169, 110, 0.15);
-  border-color: rgba(201, 169, 110, 0.45);
-  color: var(--sj-gold-light);
-}
-
+.status-pill.tracking .status-dot,
 .status-pill.threed-active .status-dot {
-  background: var(--sj-gold-accent);
-  box-shadow: 0 0 12px var(--sj-gold-glow);
+  background: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.85);
 }
 
 @keyframes pulse-dot {

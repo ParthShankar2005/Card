@@ -137,40 +137,19 @@
     vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false" embedded>
 
     <a-assets>
-      <!-- ====================================================================
-           1. AR MODE ASSETS (ORIGINAL AR DECLARATIONS)
-           ==================================================================== -->
-      <!-- Load 3D GLB Gem Ring Model asset -->
+      <!-- Common Asset Declarations (Preloaded & Cached) -->
       <a-asset-item id="glbRing" src="./assets/glb/Ring.glb"></a-asset-item>
-      <!-- Load 3D GLB Shivam Avatar Model asset -->
       <a-asset-item id="glbShivam" src="./assets/glb/Shivam.glb"></a-asset-item>
-      <!-- Load Shivam Jewels Thank You Banner Image asset -->
       <img id="shivamBanner" src="./assets/AR/shivam_banner.png" />
-      <!-- Load Shivam Jewels Official Logo Image asset -->
       <img id="shivamLogo" src="./assets/AR/shivam_logo.png" />
-      <!-- Load Shivam Jewels Booth Target Image asset -->
       <img id="Booth" src="./assets/AR/Booth.png" />
-
-      <!-- ====================================================================
-           2. 3D MODE ASSETS (EASILY SWAP/REPLACE INDEPENDENTLY FROM AR)
-           ==================================================================== -->
-      <!-- Load 3D Mode GLB Gem Ring Model asset -->
-      <a-asset-item id="glbRing-3d" src="./assets/glb/Ring.glb"></a-asset-item>
-      <!-- Load 3D Mode GLB Shivam Avatar Model asset -->
-      <a-asset-item id="glbShivam-3d" src="./assets/glb/Shivam.glb"></a-asset-item>
-      <!-- Load 3D Mode Shivam Jewels Thank You Banner Image asset -->
-      <img id="shivamBanner-3d" src="./assets/AR/shivam_banner.png" />
-      <!-- Load 3D Mode Shivam Jewels Official Logo Image asset -->
-      <img id="shivamLogo-3d" src="./assets/AR/shivam_logo.png" />
-      <!-- Load 3D Mode Shivam Jewels Booth Target Image asset -->
-      <img id="Booth-3d" src="./assets/AR/Booth.png" />
     </a-assets>
 
-    <!-- Camera setup with 0 0 0 position -->
+    <!-- Camera setup -->
     <a-camera id="main-camera" position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <!-- ========================================================================
-         A. AR EXPERIENCE TARGET (MINDAR IMAGE TRACKED - CONTINUOUS)
+         AR & 3D EXPERIENCE TARGET (MINDAR IMAGE TRACKED)
          ======================================================================== -->
     <a-entity id="ar-target" mindar-image-target="targetIndex: 0">
 
@@ -180,82 +159,71 @@
       <a-entity light="type: directional; color: #82b2df; intensity: 2.2" position="-2 1 3"></a-entity>
       <a-entity light="type: point; color: #ffffff; intensity: 3.5; distance: 6" position="0 0.5 1"></a-entity>
 
-      <!-- Wrapped AR 3D Experience Content -->
-      <a-entity id="ar-content-wrapper" visible="false" scale="0 0 0"
-        animation="property: scale; from: 0 0 0; to: 1 1 1; dur: 800; easing: easeOutBack; startEvents: targetFound">
+      <!-- ========================================================================
+           1. AR MODE CONTENT (Continuous Live Tracking)
+           ======================================================================== -->
+      <a-entity id="ar-content-wrapper" visible="false" scale="1 1 1">
 
-        <!-- 1. Shivam Jewels Booth (Left side) -->
-        <a-plane id="booth-plane" src="#Booth" position="-1.3 0 -1" rotation="0 15 0" width="1.0" height="1.25"
+        <!-- Shivam Jewels Booth (Left Wing) -->
+        <a-plane id="booth-plane" src="#Booth" position="-1.3 0 -0.35" rotation="0 25 0" width="1.0" height="1.25"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 2. Shivam Jewels Banner (Right side) -->
-        <a-plane id="banner-plane" src="#shivamBanner" position="1.3 0 -1" rotation="0 -15 0" width="1.0" height="1.25"
+        <!-- Shivam Jewels Banner (Right Wing) -->
+        <a-plane id="banner-plane" src="#shivamBanner" position="1.3 0 -0.35" rotation="0 -25 0" width="1.0" height="1.25"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 3. Shivam Jewels Official Logo (Center Top) -->
-        <a-plane id="logo-plane" src="#shivamLogo" position="0 0.8 0" rotation="0 0 0" width="1.0" height="0.26"
+        <!-- Shivam Jewels Official Logo (Center Top) -->
+        <a-plane id="logo-plane" src="#shivamLogo" position="0 0.85 0" rotation="0 0 0" width="1.0" height="0.26"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 4. Center Bottom: Flat Gem Ring Pedestal -->
-        <a-entity id="ring-model-container" position="0 -0.5 0.2" rotation="0 0 0">
+        <!-- Center Bottom: Flat Gem Ring Pedestal (Exact Center) -->
+        <a-entity id="ring-model-container" position="0 -0.5 0" rotation="0 0 0">
           <a-gltf-model id="ring-model-entity" src="#glbRing" scale="0.2 0.2 0.2" position="0 0 0" rotation="0 0 0"
             play-all-animations>
           </a-gltf-model>
         </a-entity>
 
-        <!-- 5. Center: Shivam 3D Model Showcase -->
-        <a-entity id="shivam-model-container" position="0 -0.4 0.2" rotation="0 -90 0">
+        <!-- Center: Shivam 3D Model Showcase (Exact Center) -->
+        <a-entity id="shivam-model-container" position="0 -0.4 0" rotation="0 -90 0">
           <a-gltf-model id="shivam-model-entity" src="#glbShivam" scale="3 3 3" position="0 0 0" rotation="0 0 0"
             play-all-animations>
           </a-gltf-model>
         </a-entity>
       </a-entity>
 
-    </a-entity>
+      <!-- ========================================================================
+           2. 3D MODE CONTENT (1:1 Clean Models + 360° Touch Rotate)
+           ======================================================================== -->
+      <a-entity id="threed-content-wrapper" visible="false" scale="1 1 1" touch-rotate>
 
-    <!-- ========================================================================
-         B. 3D PERSISTENT ENVIRONMENT (ONE-TIME SCAN UNLOCK)
-         Positioned in front of camera (Z = -2.5) with touch-rotate interaction
-         ======================================================================== -->
-    <a-entity id="threed-world-pivot" position="0 0 0" rotation="0 0 0">
-
-      <!-- Studio Lighting for 3D Mode -->
-      <a-entity light="type: ambient; color: #ffffff; intensity: 3.2"></a-entity>
-      <a-entity light="type: directional; color: #ffffff; intensity: 4.0" position="1 4 3"></a-entity>
-      <a-entity light="type: directional; color: #cbe2f8; intensity: 2.5" position="-3 2 2"></a-entity>
-      <a-entity light="type: point; color: #c9a96e; intensity: 2.0; distance: 5" position="0 -1 1"></a-entity>
-
-      <!-- Wrapped 3D Mode Content (Mirrored Structure for easy asset replacement) -->
-      <a-entity id="threed-content-wrapper" visible="false" position="0 0 -2.5" scale="0 0 0" touch-rotate>
-
-        <!-- 1. Shivam Jewels Booth 3D (Left side) -->
-        <a-plane id="booth-plane-3d" src="#Booth-3d" position="-1.3 0 -1" rotation="0 15 0" width="1.0" height="1.25"
+        <!-- Shivam Jewels Booth 3D (Left Wing) -->
+        <a-plane id="booth-plane-3d" src="#Booth" position="-1.3 0 -0.35" rotation="0 25 0" width="1.0" height="1.25"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 2. Shivam Jewels Banner 3D (Right side) -->
-        <a-plane id="banner-plane-3d" src="#shivamBanner-3d" position="1.3 0 -1" rotation="0 -15 0" width="1.0"
+        <!-- Shivam Jewels Banner 3D (Right Wing) -->
+        <a-plane id="banner-plane-3d" src="#shivamBanner" position="1.3 0 -0.35" rotation="0 -25 0" width="1.0"
           height="1.25" material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 3. Shivam Jewels Official Logo 3D (Center Top) -->
-        <a-plane id="logo-plane-3d" src="#shivamLogo-3d" position="0 0.8 0" rotation="0 0 0" width="1.0" height="0.26"
+        <!-- Shivam Jewels Official Logo 3D (Center Top) -->
+        <a-plane id="logo-plane-3d" src="#shivamLogo" position="0 0.85 0" rotation="0 0 0" width="1.0" height="0.26"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- 4. Center Bottom: Flat Gem Ring Pedestal 3D -->
-        <a-entity id="ring-model-container-3d" position="0 -0.5 0.2" rotation="0 0 0">
-          <a-gltf-model id="ring-model-entity-3d" src="#glbRing-3d" scale="0.2 0.2 0.2" position="0 0 0"
+        <!-- Center Bottom: Flat Gem Ring Pedestal 3D (Exact Center) -->
+        <a-entity id="ring-model-container-3d" position="0 -0.5 0" rotation="0 0 0">
+          <a-gltf-model id="ring-model-entity-3d" src="#glbRing" scale="0.2 0.2 0.2" position="0 0 0"
             rotation="0 0 0" play-all-animations>
           </a-gltf-model>
         </a-entity>
 
-        <!-- 5. Center: Shivam 3D Model Showcase 3D -->
-        <a-entity id="shivam-model-container-3d" position="0 -0.4 0.2" rotation="0 -90 0">
-          <a-gltf-model id="shivam-model-entity-3d" src="#glbShivam-3d" scale="3 3 3" position="0 0 0" rotation="0 0 0"
+        <!-- Center: Shivam 3D Model Showcase 3D (Exact Center) -->
+        <a-entity id="shivam-model-container-3d" position="0 -0.4 0" rotation="0 -90 0">
+          <a-gltf-model id="shivam-model-entity-3d" src="#glbShivam" scale="3 3 3" position="0 0 0" rotation="0 0 0"
             play-all-animations>
           </a-gltf-model>
         </a-entity>

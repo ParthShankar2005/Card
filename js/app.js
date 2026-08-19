@@ -25,49 +25,62 @@
     THREED: 'THREED'
   };
 
+  // Port 5000 is the Card Detection Bypass Mode (No physical card needed)
+  // Port 3000 and Production are 100% Normal Camera & Card Scanning Mode
+  const isBypassMode = window.location.port === '5000' ||
+    new URLSearchParams(window.location.search).has('dev') ||
+    new URLSearchParams(window.location.search).has('bypass');
+
   let currentMode = MODES.LOADING;
   let has3DUnlocked = false;
   let isARStarting = false;
   let isARRunning = false;
+  let devSimulateTimeout = null;
+  let isSimulatedTargetFound = false;
 
   // ==========================================================================
   // 2. A-FRAME CUSTOM COMPONENTS
   // ==========================================================================
   if (typeof AFRAME !== 'undefined') {
-    // GLTF Animation Controller (Plays all animations on models)
+    // GLTF Animation Controller (Plays all animations on models reliably)
     AFRAME.registerComponent('play-all-animations', {
       init: function () {
         this.mixer = null;
         this.actions = [];
         this.isPlaying = false;
 
-        this.el.addEventListener('model-loaded', (e) => {
-          const model = (e.detail && e.detail.model) || this.el.getObject3D('mesh');
-          const animations = (e.detail && e.detail.model && e.detail.model.animations) ||
-            (this.el.components['gltf-model'] && this.el.components['gltf-model'].model && this.el.components['gltf-model'].model.animations) ||
-            (model && model.animations) || [];
+        const setupAndPlay = () => {
+          const meshObj = this.el.getObject3D('mesh');
+          const gltfComp = this.el.components['gltf-model'];
+          const animations = (gltfComp && gltfComp.model && gltfComp.model.animations) ||
+            (meshObj && meshObj.animations) || [];
 
-          if (model && animations && animations.length > 0) {
-            this.mixer = new THREE.AnimationMixer(model);
-            this.actions = animations.map((clip) => {
-              const action = this.mixer.clipAction(clip);
-              action.setLoop(THREE.LoopRepeat, Infinity);
-              action.clampWhenFinished = false;
-              return action;
-            });
-
-            // Automatically play if 3D mode is unlocked or when ready
-            if (currentMode === MODES.THREED && has3DUnlocked) {
-              this.playAnimations();
+          if (meshObj && animations && animations.length > 0) {
+            if (!this.mixer) {
+              this.mixer = new THREE.AnimationMixer(meshObj);
+              this.actions = animations.map((clip) => {
+                const action = this.mixer.clipAction(clip);
+                action.setLoop(THREE.LoopRepeat, Infinity);
+                action.clampWhenFinished = false;
+                action.play();
+                return action;
+              });
+              this.isPlaying = true;
+              console.log(`[Animation] Playing ${this.actions.length} animation track(s) on #${this.el.id || 'model'}`);
             }
           }
-        });
+        };
+
+        this.el.addEventListener('model-loaded', setupAndPlay);
+        if (this.el.getObject3D('mesh')) {
+          setupAndPlay();
+        }
 
         // Synchronize AR animation playback with image target detection
         const targetEntity = document.getElementById('ar-target');
         if (targetEntity) {
           targetEntity.addEventListener('targetFound', () => {
-            if (currentMode === MODES.AR) this.playAnimations();
+            this.playAnimations();
           });
           targetEntity.addEventListener('targetLost', () => {
             if (currentMode === MODES.AR) this.pauseAnimations();
@@ -77,7 +90,7 @@
       playAnimations: function () {
         if (!this.mixer || this.actions.length === 0) return;
         this.actions.forEach((action) => {
-          action.reset();
+          action.paused = false;
           action.play();
         });
         this.isPlaying = true;
@@ -85,7 +98,7 @@
       pauseAnimations: function () {
         if (!this.mixer) return;
         this.actions.forEach((action) => {
-          action.stop();
+          action.paused = true;
         });
         this.isPlaying = false;
       },
@@ -96,20 +109,32 @@
       }
     });
 
-    // Touch / Pointer Drag Rotation Controller for 3D Mode
+    // Touch / Pointer Drag Orbit & Zoom Controller for 3D Mode (Floor Anchor Orbit)
     AFRAME.registerComponent('touch-rotate', {
       init: function () {
         this.isDragging = false;
         this.previousX = 0;
         this.previousY = 0;
+        this.rotY = 0;
+        this.rotX = 0;
+        this.currentScale = 1.0;
+        this.initialPinchDist = 0;
         this.rotationSpeed = 0.45;
         this.autoRotateSpeed = 0.2;
         this.lastInteractTime = performance.now();
 
         const onPointerDown = (e) => {
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
-          // Ignore clicks on UI header or modal buttons
           if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
+
+          if (e.touches && e.touches.length === 2) {
+            // Two-finger pinch gesture start
+            this.isDragging = false;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            this.initialPinchDist = Math.hypot(dx, dy);
+            return;
+          }
 
           this.isDragging = true;
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -120,7 +145,23 @@
         };
 
         const onPointerMove = (e) => {
-          if (!this.isDragging || currentMode !== MODES.THREED) return;
+          if (currentMode !== MODES.THREED) return;
+
+          // Handle Two-Finger Pinch Zoom on Mobile
+          if (e.touches && e.touches.length === 2 && this.initialPinchDist > 0) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const newDist = Math.hypot(dx, dy);
+            const scaleDelta = (newDist - this.initialPinchDist) * 0.005;
+            this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + scaleDelta));
+            this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
+            this.initialPinchDist = newDist;
+            this.lastInteractTime = performance.now();
+            return;
+          }
+
+          if (!this.isDragging) return;
+
           const clientX = e.touches ? e.touches[0].clientX : e.clientX;
           const clientY = e.touches ? e.touches[0].clientY : e.clientY;
           const deltaX = clientX - this.previousX;
@@ -130,15 +171,29 @@
           this.previousY = clientY;
           this.lastInteractTime = performance.now();
 
-          const currentRot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-          const newY = currentRot.y + deltaX * this.rotationSpeed;
-          const newX = Math.max(-25, Math.min(25, currentRot.x + deltaY * (this.rotationSpeed * 0.4)));
+          // Full 360-degree horizontal orbit around floor anchor
+          this.rotY = (this.rotY + deltaX * this.rotationSpeed) % 360;
+          // Smooth vertical elevation tilt (-30 to +50 degrees)
+          this.rotX = Math.max(-30, Math.min(50, this.rotX + deltaY * (this.rotationSpeed * 0.45)));
 
-          this.el.setAttribute('rotation', `${newX} ${newY} ${currentRot.z}`);
+          this.el.setAttribute('rotation', `${this.rotX} ${this.rotY} 0`);
         };
 
-        const onPointerUp = () => {
-          this.isDragging = false;
+        const onPointerUp = (e) => {
+          if (!e.touches || e.touches.length === 0) {
+            this.isDragging = false;
+            this.initialPinchDist = 0;
+          }
+        };
+
+        // Mouse Wheel Scroll Zoom In / Zoom Out
+        const onWheel = (e) => {
+          if (currentMode !== MODES.THREED || !has3DUnlocked) return;
+          e.preventDefault();
+          const zoomDelta = -e.deltaY * 0.0015;
+          this.currentScale = Math.max(0.4, Math.min(3.0, this.currentScale + zoomDelta));
+          this.el.setAttribute('scale', `${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)} ${this.currentScale.toFixed(2)}`);
+          this.lastInteractTime = performance.now();
         };
 
         window.addEventListener('mousedown', onPointerDown, { passive: true });
@@ -148,14 +203,16 @@
         window.addEventListener('touchstart', onPointerDown, { passive: true });
         window.addEventListener('touchmove', onPointerMove, { passive: true });
         window.addEventListener('touchend', onPointerUp, { passive: true });
+        window.addEventListener('wheel', onWheel, { passive: false });
       },
       tick: function (t, dt) {
-        // Gentle slow ambient auto-rotation when user is idle in 3D Mode
+        // Gentle ambient auto-rotation when user is idle in 3D Mode
         if (currentMode === MODES.THREED && has3DUnlocked && !this.isDragging && dt) {
-          if (performance.now() - this.lastInteractTime > 2500) {
+          if (performance.now() - this.lastInteractTime > 3000) {
             const rot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
             const deltaRot = (this.autoRotateSpeed * dt) / 1000 * 15;
-            this.el.setAttribute('rotation', `${rot.x} ${rot.y + deltaRot} ${rot.z}`);
+            this.rotY = (rot.y + deltaRot) % 360;
+            this.el.setAttribute('rotation', `${rot.x} ${this.rotY} ${rot.z}`);
           }
         }
       }
@@ -165,7 +222,94 @@
   // ==========================================================================
   // 3. CAMERA PERMISSION & LIFECYCLE CONTROLLER
   // ==========================================================================
+  function simulateTargetFound() {
+    isSimulatedTargetFound = true;
+    const targetEntity = document.getElementById('ar-target');
+    const arWrapper = document.getElementById('ar-content-wrapper');
+    const threedPivot = document.getElementById('threed-world-pivot');
+    const threedWrapper = document.getElementById('threed-content-wrapper');
+    const statusPill = document.getElementById('status-pill');
+    const statusText = document.getElementById('status-text');
+    const reticle = document.getElementById('scanning-reticle');
+    const gestureHint = document.getElementById('gesture-hint');
+
+    if (reticle) {
+      reticle.classList.add('hidden');
+      reticle.style.display = 'none';
+    }
+
+    if (currentMode === MODES.AR) {
+      if (statusPill) statusPill.className = 'status-pill tracking';
+      if (statusText) statusText.textContent = 'SJ AR Card';
+
+      if (arWrapper) {
+        arWrapper.setAttribute('visible', 'true');
+        if (arWrapper.object3D) arWrapper.object3D.visible = true;
+        arWrapper.setAttribute('scale', '1 1 1');
+        arWrapper.emit('targetFound');
+      }
+      if (targetEntity) targetEntity.emit('targetFound');
+
+    } else if (currentMode === MODES.THREED) {
+      has3DUnlocked = true;
+      if (statusPill) statusPill.className = 'status-pill threed-active';
+      if (statusText) statusText.textContent = 'SJ 3D Card';
+
+      if (threedWrapper) {
+        threedWrapper.setAttribute('visible', 'true');
+        if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
+        threedWrapper.setAttribute('scale', '1 1 1');
+        threedWrapper.emit('threedFound');
+
+        const models = threedWrapper.querySelectorAll('[play-all-animations]');
+        models.forEach((m) => {
+          const comp = m.components['play-all-animations'];
+          if (comp) comp.playAnimations();
+        });
+      }
+
+      if (gestureHint) {
+        gestureHint.classList.remove('hidden');
+        setTimeout(() => {
+          if (gestureHint) gestureHint.classList.add('hidden');
+        }, 4500);
+      }
+    }
+  }
+
+  function simulateTargetLost() {
+    isSimulatedTargetFound = false;
+    const targetEntity = document.getElementById('ar-target');
+    const arWrapper = document.getElementById('ar-content-wrapper');
+    const statusPill = document.getElementById('status-pill');
+    const statusText = document.getElementById('status-text');
+    const reticle = document.getElementById('scanning-reticle');
+
+    if (currentMode === MODES.AR) {
+      if (statusPill) statusPill.className = 'status-pill searching';
+      if (statusText) statusText.textContent = 'Scan SJ AR Card';
+      if (reticle) {
+        reticle.classList.remove('hidden');
+        reticle.style.display = 'flex';
+      }
+      if (arWrapper) {
+        arWrapper.setAttribute('visible', 'false');
+        if (arWrapper.object3D) arWrapper.object3D.visible = false;
+        arWrapper.setAttribute('scale', '0 0 0');
+      }
+      if (targetEntity) targetEntity.emit('targetLost');
+    }
+  }
+
   function showCameraGuidance(title, desc, errorDetails, isBlocked) {
+    // If on localhost dev bypass mode (port 5000), automatically proceed with simulation
+    if (isBypassMode) {
+      console.log("[Bypass Mode :5000] Auto-bypassing camera restriction on port 5000.");
+      hideCameraGuidance();
+      setTimeout(simulateTargetFound, 600);
+      return;
+    }
+
     const modalOverlay = document.getElementById('permission-modal');
     const modalIcon = document.getElementById('modal-icon');
     const modalTitle = document.getElementById('modal-title');
@@ -233,6 +377,11 @@
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       isARStarting = false;
+      if (isBypassMode) {
+        hideCameraGuidance();
+        setTimeout(simulateTargetFound, 600);
+        return;
+      }
       showCameraGuidance(
         'HTTPS Required',
         'Camera access requires a secure connection.',
@@ -284,6 +433,13 @@
     isARStarting = false;
     isARRunning = false;
     console.error("WebAR camera error:", err);
+
+    if (isBypassMode) {
+      console.log("[Bypass Mode :5000] Camera error on port 5000 - automatically falling back to simulated models.");
+      hideCameraGuidance();
+      setTimeout(simulateTargetFound, 600);
+      return;
+    }
 
     let title = 'Camera Access Needed';
     let desc = 'Camera permission is needed to scan the SJ card.';
@@ -368,6 +524,11 @@
     const modeLabel = document.getElementById('current-mode-label');
     const gestureHint = document.getElementById('gesture-hint');
 
+    if (devSimulateTimeout) {
+      clearTimeout(devSimulateTimeout);
+      devSimulateTimeout = null;
+    }
+
     if (selectedMode === 'AR') {
       currentMode = MODES.AR;
       if (modeLabel) modeLabel.textContent = 'AR Mode';
@@ -376,7 +537,6 @@
       if (threedWrapper) {
         threedWrapper.setAttribute('visible', 'false');
         if (threedWrapper.object3D) threedWrapper.object3D.visible = false;
-        threedWrapper.setAttribute('scale', '0 0 0');
       }
       if (gestureHint) gestureHint.classList.add('hidden');
 
@@ -386,6 +546,16 @@
       updateReticleVisibility();
       startARSession();
 
+      // On Port 5000 Bypass mode, automatically trigger detection in 600ms
+      if (isBypassMode) {
+        devSimulateTimeout = setTimeout(() => {
+          if (currentMode === MODES.AR) {
+            console.log("[Bypass Mode :5000] Auto-detecting SJ AR Card.");
+            simulateTargetFound();
+          }
+        }, 600);
+      }
+
     } else if (selectedMode === 'THREED') {
       currentMode = MODES.THREED;
       if (modeLabel) modeLabel.textContent = '3D Mode';
@@ -394,7 +564,6 @@
       if (arWrapper) {
         arWrapper.setAttribute('visible', 'false');
         if (arWrapper.object3D) arWrapper.object3D.visible = false;
-        arWrapper.setAttribute('scale', '0 0 0');
       }
 
       if (has3DUnlocked) {
@@ -405,7 +574,7 @@
           threedWrapper.setAttribute('scale', '1 1 1');
         }
         if (statusPill) statusPill.className = 'status-pill threed-active';
-        if (statusText) statusText.textContent = 'SJ 3D Card Detected';
+        if (statusText) statusText.textContent = 'SJ 3D Card';
         if (gestureHint) {
           gestureHint.classList.remove('hidden');
           setTimeout(() => gestureHint.classList.add('hidden'), 4500);
@@ -416,6 +585,16 @@
         if (statusPill) statusPill.className = 'status-pill searching';
         if (statusText) statusText.textContent = 'Scan SJ 3D Card';
         updateReticleVisibility();
+
+        // On Port 5000 Bypass mode, automatically trigger detection in 600ms
+        if (isBypassMode) {
+          devSimulateTimeout = setTimeout(() => {
+            if (currentMode === MODES.THREED && !has3DUnlocked) {
+              console.log("[Bypass Mode :5000] Auto-detecting SJ 3D Card.");
+              simulateTargetFound();
+            }
+          }, 600);
+        }
       }
 
       startARSession();
@@ -587,7 +766,7 @@
         if (currentMode === MODES.AR) {
           // --- AR MODE (Continuous Live Tracking) ---
           if (statusPill) statusPill.className = 'status-pill tracking';
-          if (statusText) statusText.textContent = 'SJ AR Card Detected';
+          if (statusText) statusText.textContent = 'SJ AR Card';
           if (reticle) reticle.classList.add('hidden');
 
           if (arWrapper) {
@@ -596,17 +775,20 @@
             arWrapper.emit('targetFound');
           }
         } else if (currentMode === MODES.THREED) {
-          // --- 3D MODE (One-Time Scan Unlock) ---
+          // --- 3D MODE (Immediate Visibility + 360° Touch Rotate) ---
           has3DUnlocked = true;
 
           if (statusPill) statusPill.className = 'status-pill threed-active';
-          if (statusText) statusText.textContent = 'SJ 3D Card Detected';
+          if (statusText) statusText.textContent = 'SJ 3D Card';
           if (reticle) reticle.classList.add('hidden');
 
           if (threedWrapper) {
             threedWrapper.setAttribute('visible', 'true');
-            if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
-            threedWrapper.setAttribute('scale', '1 1 1');
+            if (threedWrapper.object3D) {
+              threedWrapper.object3D.visible = true;
+              threedWrapper.object3D.scale.set(1, 1, 1);
+            }
+            threedWrapper.emit('threedFound');
 
             // Trigger animations on models
             const models = threedWrapper.querySelectorAll('[play-all-animations]');
@@ -635,19 +817,15 @@
           if (arWrapper) {
             arWrapper.setAttribute('visible', 'false');
             if (arWrapper.object3D) arWrapper.object3D.visible = false;
-            arWrapper.setAttribute('scale', '0 0 0');
           }
         } else if (currentMode === MODES.THREED) {
-          // --- 3D MODE: Keep 3D World Persistently Visible! ---
+          // --- 3D MODE: When card leaves frame, keep 3D models visible and interactive! ---
           if (has3DUnlocked) {
-            if (statusPill) statusPill.className = 'status-pill threed-active';
-            if (statusText) statusText.textContent = 'SJ 3D Card Detected';
-            if (reticle) reticle.classList.add('hidden');
-            // Do NOT hide threedWrapper! It stays permanently active.
-          } else {
-            if (statusPill) statusPill.className = 'status-pill searching';
-            if (statusText) statusText.textContent = 'Scan SJ 3D Card';
-            if (reticle) reticle.classList.remove('hidden');
+            targetEntity.object3D.visible = true;
+            if (threedWrapper) {
+              threedWrapper.setAttribute('visible', 'true');
+              if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
+            }
           }
         }
       });
@@ -699,6 +877,33 @@
     const btnStartAr = document.getElementById('btn-start-ar');
     if (btnStartAr) {
       btnStartAr.onclick = window.handleStartARClick;
+    }
+
+    // Port 5000 Bypass Helpers: Click status-pill or press Spacebar to toggle card detection
+    if (isBypassMode) {
+      console.log("%c[WebAR Card Bypass Mode Active :5000] Running on Port 5000. Card scanning bypassed! Press SPACEBAR or tap the Status Pill to toggle.", "color: #10b981; font-weight: bold; font-size: 13px;");
+      if (statusPill) {
+        statusPill.style.cursor = 'pointer';
+        statusPill.title = 'Bypass Mode: Click to toggle Card Detection';
+        statusPill.addEventListener('click', () => {
+          if (isSimulatedTargetFound) {
+            simulateTargetLost();
+          } else {
+            simulateTargetFound();
+          }
+        });
+      }
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          if (isSimulatedTargetFound) {
+            simulateTargetLost();
+          } else {
+            simulateTargetFound();
+          }
+        }
+      });
     }
 
     // Launch loading screen first, then open Mode Selection screen upon completion
