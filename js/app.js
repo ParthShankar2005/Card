@@ -25,11 +25,9 @@
     THREED: 'THREED'
   };
 
-  // Port 5000 is the Card Detection Bypass Mode (No physical card needed)
-  // Port 3000 and Production are 100% Normal Camera & Card Scanning Mode
-  const isBypassMode = window.location.port === '5000' ||
-    new URLSearchParams(window.location.search).has('dev') ||
-    new URLSearchParams(window.location.search).has('bypass');
+  // Port 5000 is the offline Dev Bypass Mode for rapid model inspection
+  // Port 4200 and Production STRICTLY require a physical card scan (No URL link bypass)
+  const isBypassMode = window.location.port === '5000';
 
   let currentMode = MODES.LOADING;
   let has3DUnlocked = false;
@@ -39,21 +37,17 @@
   let isSimulatedTargetFound = false;
 
   // ==========================================================================
-  // 3D ENVIRONMENT & CARD LIFECYCLE STATE MACHINE
+  // 3D MODE — CONTINUOUS 30-SECOND BACKGROUND IMAGE TRACKING LOOP
   // ==========================================================================
   const THREED_STATE = {
-    SEARCHING_INITIAL: 'SEARCHING_INITIAL',         // Initial: Waiting for 3-second continuous card scan
-    ACTIVE_BUILDING: 'ACTIVE_BUILDING',             // 3D Space active, 20s background process running
-    WAITING_FOR_CARD_1MIN: 'WAITING_FOR_CARD_1MIN', // 20s complete, 1-minute waiting for card return
-    REQUIRE_RESCAN: 'REQUIRE_RESCAN'               // 1-minute expired, status "Scan card again"
+    INITIAL_SCAN: 'INITIAL_SCAN',       // Initial: Point camera at Card (3s confirmation)
+    ACTIVE_3D_LOOP: 'ACTIVE_3D_LOOP'    // 3D Mode: Foreground 3D exploration + continuous 30s background tracking loop
   };
 
-  let threedState = THREED_STATE.SEARCHING_INITIAL;
+  let threedState = THREED_STATE.INITIAL_SCAN;
   let isCardInView = false;
   let cardConfirmTimer = null;
-  let cardConfirmStart = null;
-  let background20SecTimer = null;
-  let cardReturn1MinTimer = null;
+  let background30SecTimer = null;
 
   // ==========================================================================
   // 2. A-FRAME CUSTOM COMPONENTS
@@ -322,7 +316,7 @@
   }
 
   // ==========================================================================
-  // 3. LIFECYCLE & STATE MACHINE CONTROLLERS
+  // 3. LIFECYCLE & 30-SECOND BACKGROUND LOOP CONTROLLER
   // ==========================================================================
   function updateStatusPill(className, text) {
     const statusPill = document.getElementById('status-pill');
@@ -332,23 +326,20 @@
   }
 
   function start3SecondConfirmation(onSuccess) {
-    clear3SecondConfirmation();
-    cardConfirmStart = performance.now();
-    updateStatusPill('scanning', 'Scanning... Hold Still');
+    clearConfirmationTimer();
+    updateStatusPill('scanning', 'Scanning Card... (Hold 3s)');
 
     cardConfirmTimer = setTimeout(() => {
       cardConfirmTimer = null;
-      cardConfirmStart = null;
       if (typeof onSuccess === 'function') onSuccess();
-    }, 3000);
+    }, 3000); // 3 continuous seconds required for confirmation
   }
 
-  function clear3SecondConfirmation() {
+  function clearConfirmationTimer() {
     if (cardConfirmTimer) {
       clearTimeout(cardConfirmTimer);
       cardConfirmTimer = null;
     }
-    cardConfirmStart = null;
   }
 
   function buildOrRefresh3DEnvironment() {
@@ -367,6 +358,7 @@
       targetEntity.object3D.visible = true;
     }
 
+    // Creates NEW 3D Space (refreshes models & animations)
     if (threedWrapper) {
       threedWrapper.setAttribute('visible', 'true');
       if (threedWrapper.object3D) {
@@ -395,85 +387,56 @@
   }
 
   function handleCardConfirmed() {
-    console.log("[Lifecycle] 3-Second Card Scan Confirmed! Creating/refreshing 3D Environment.");
+    console.log("[3D Mode] 3-Second Card Scan Confirmed! Creating NEW 3D Space & Removing OLD Space.");
 
-    // Clear any active 1-minute card-return timers
-    clear1MinCardTimeout();
-
-    // 1. Create or refresh the 3D environment
+    // 1. Create or refresh the 3D environment & update status pill
     buildOrRefresh3DEnvironment();
 
-    // 2. Lock the 3D pose in place — STOPS continuous card tracking completely!
+    // 2. Lock the new 3D location in place — STOPS continuous card tracking completely!
     const targetEntity = document.getElementById('ar-target');
     if (targetEntity && targetEntity.components['freeze-on-lock']) {
       targetEntity.components['freeze-on-lock'].lockCurrentPose();
     }
 
-    // 3. Transition to ACTIVE_BUILDING state
-    threedState = THREED_STATE.ACTIVE_BUILDING;
+    // 3. Transition state to ACTIVE_3D_LOOP
+    threedState = THREED_STATE.ACTIVE_3D_LOOP;
 
-    // 4. Start 20-Second Background Build Process (invisible to user)
-    start20SecondBackgroundBuild();
+    // 4. Start / Reset 30-Second Background Loop
+    start30SecondBackgroundLoop();
   }
 
-  function start20SecondBackgroundBuild() {
-    if (background20SecTimer) {
-      clearTimeout(background20SecTimer);
+  function start30SecondBackgroundLoop() {
+    if (background30SecTimer) {
+      clearTimeout(background30SecTimer);
+      background30SecTimer = null;
     }
-    console.log("[Lifecycle] Starting 20-second background environment build process...");
 
-    background20SecTimer = setTimeout(() => {
-      background20SecTimer = null;
-      on20SecondBackgroundComplete();
-    }, 20000);
+    if (currentMode !== MODES.THREED) return;
+
+    console.log("[3D Background Loop] Starting new 30-second tracking/build cycle...");
+
+    background30SecTimer = setTimeout(() => {
+      background30SecTimer = null;
+      on30SecondCycleComplete();
+    }, 30000); // 30-Second cycle
   }
 
-  function on20SecondBackgroundComplete() {
-    console.log("[Lifecycle] 20-second background process complete. Checking card presence for new build...");
+  function on30SecondCycleComplete() {
+    if (currentMode !== MODES.THREED) return;
 
-    // Unlock target pose to allow background scanner to evaluate new card placement
-    const targetEntity = document.getElementById('ar-target');
-    if (targetEntity && targetEntity.components['freeze-on-lock']) {
-      targetEntity.components['freeze-on-lock'].unlock();
-    }
+    console.log("[3D Background Loop] 30 seconds complete.");
 
-    if (isCardInView) {
-      // Case: Card is currently inside the camera frame -> Require 3-second continuous scan
-      console.log("[Lifecycle] Card is visible! Requiring 3-second continuous confirmation...");
+    // Case 1 — Card Not Found / Cycle Elapsed:
+    // Keep current 3D space untouched, no error, no interruption.
+    // Immediately restart another 30-second cycle forever!
+    start30SecondBackgroundLoop();
+
+    // If card happens to be in view at cycle boundary, ensure 3-second confirmation runs
+    if (isCardInView && !cardConfirmTimer) {
       start3SecondConfirmation(() => {
         handleCardConfirmed();
       });
-    } else {
-      // Case: Card is NOT in camera frame -> Transition to 1-Minute Waiting State (Card absent is OK)
-      console.log("[Lifecycle] Card is not in frame. Entering 1-Minute Waiting Period...");
-      threedState = THREED_STATE.WAITING_FOR_CARD_1MIN;
-      start1MinCardTimeout();
     }
-  }
-
-  function start1MinCardTimeout() {
-    clear1MinCardTimeout();
-    console.log("[Lifecycle] 1-Minute card-return countdown started.");
-
-    cardReturn1MinTimer = setTimeout(() => {
-      cardReturn1MinTimer = null;
-      on1MinCardTimeoutExpired();
-    }, 60000);
-  }
-
-  function clear1MinCardTimeout() {
-    if (cardReturn1MinTimer) {
-      clearTimeout(cardReturn1MinTimer);
-      cardReturn1MinTimer = null;
-    }
-  }
-
-  function on1MinCardTimeoutExpired() {
-    console.log("[Lifecycle] 1-Minute waiting period expired without card return.");
-    threedState = THREED_STATE.REQUIRE_RESCAN;
-
-    // Change status pill to warning state
-    updateStatusPill('warning', 'Scan card again');
   }
 
   function simulateTargetFound() {
@@ -525,7 +488,7 @@
       if (targetEntity) targetEntity.emit('targetLost');
     } else if (currentMode === MODES.THREED) {
       isCardInView = false;
-      clear3SecondConfirmation();
+      clearConfirmationTimer();
     }
   }
 
@@ -762,9 +725,8 @@
       if (modeLabel) modeLabel.textContent = 'AR Mode';
 
       // Clear 3D Lifecycle Timers & Unfreeze
-      clear3SecondConfirmation();
-      if (background20SecTimer) { clearTimeout(background20SecTimer); background20SecTimer = null; }
-      clear1MinCardTimeout();
+      clearConfirmationTimer();
+      if (background30SecTimer) { clearTimeout(background30SecTimer); background30SecTimer = null; }
 
       const targetEntity = document.getElementById('ar-target');
       if (targetEntity && targetEntity.components['freeze-on-lock']) {
@@ -807,17 +769,15 @@
       }
 
       if (has3DUnlocked) {
-        // Already unlocked: directly show 3D world
+        // Already unlocked: directly show 3D world and start 30s background loop
         if (threedWrapper) {
           threedWrapper.setAttribute('visible', 'true');
           if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
           threedWrapper.setAttribute('scale', '1 1 1');
         }
-        if (threedState === THREED_STATE.REQUIRE_RESCAN) {
-          updateStatusPill('warning', 'Scan card again');
-        } else {
-          updateStatusPill('threed-active', 'Card Found');
-        }
+        updateStatusPill('threed-active', 'Card Found');
+        start30SecondBackgroundLoop();
+
         if (gestureHint) {
           gestureHint.classList.remove('hidden');
           setTimeout(() => gestureHint.classList.add('hidden'), 4500);
@@ -825,7 +785,7 @@
         updateReticleVisibility();
       } else {
         // Needs initial 3-second scan
-        threedState = THREED_STATE.SEARCHING_INITIAL;
+        threedState = THREED_STATE.INITIAL_SCAN;
         updateStatusPill('searching', 'Point camera at Card');
         updateReticleVisibility();
 
@@ -985,6 +945,17 @@
               node.setAttribute('autoplay', 'true');
               node.playsInline = true;
               node.muted = true;
+              node.style.position = 'absolute';
+              node.style.top = '0';
+              node.style.left = '0';
+              node.style.width = '100%';
+              node.style.height = '100%';
+              node.style.objectFit = 'cover';
+              node.style.zIndex = '1';
+              // Force play for Android Chrome
+              if (node.play) {
+                node.play().catch(() => {});
+              }
             }
             if (
               node.classList &&
@@ -1013,31 +984,28 @@
 
           if (arWrapper) {
             arWrapper.setAttribute('visible', 'true');
-            if (arWrapper.object3D) arWrapper.object3D.visible = true;
+            if (arWrapper.object3D) {
+              arWrapper.object3D.visible = true;
+              arWrapper.object3D.scale.set(1, 1, 1);
+            }
+            arWrapper.setAttribute('scale', '1 1 1');
             arWrapper.emit('targetFound');
+
+            const models = arWrapper.querySelectorAll('[play-all-animations]');
+            models.forEach((m) => {
+              const comp = m.components['play-all-animations'];
+              if (comp) comp.playAnimations();
+            });
           }
         } else if (currentMode === MODES.THREED) {
-          // --- 3D MODE (3-Second Card Confirmation & Lifecycle Manager) ---
+          // --- 3D MODE: Background Card Recognition ---
           isCardInView = true;
 
-          if (threedWrapper) {
-            threedWrapper.setAttribute('visible', 'true');
-            if (threedWrapper.object3D) {
-              threedWrapper.object3D.visible = true;
-              threedWrapper.object3D.scale.set(1, 1, 1);
-            }
-          }
-
-          if (threedState === THREED_STATE.SEARCHING_INITIAL ||
-              threedState === THREED_STATE.WAITING_FOR_CARD_1MIN ||
-              threedState === THREED_STATE.REQUIRE_RESCAN) {
-            // Start continuous 3-second card confirmation
-            start3SecondConfirmation(() => {
-              handleCardConfirmed();
-            });
-          } else if (threedState === THREED_STATE.ACTIVE_BUILDING) {
-            // During 20s background process, card in frame is noted but user explores undisturbed
-          }
+          // When card is detected during initial scan or any 30s background cycle:
+          // Start continuous 3-second confirmation
+          start3SecondConfirmation(() => {
+            handleCardConfirmed();
+          });
         }
       });
 
@@ -1052,29 +1020,14 @@
             if (arWrapper.object3D) arWrapper.object3D.visible = false;
           }
         } else if (currentMode === MODES.THREED) {
-          // --- 3D MODE: Card absence is completely acceptable ---
+          // --- 3D MODE: Card absence is completely fine ---
           isCardInView = false;
-          clear3SecondConfirmation();
+          clearConfirmationTimer();
 
-          if (threedState === THREED_STATE.SEARCHING_INITIAL) {
+          if (threedState === THREED_STATE.INITIAL_SCAN && !has3DUnlocked) {
             updateStatusPill('searching', 'Point camera at Card');
-          } else if (threedState === THREED_STATE.ACTIVE_BUILDING) {
-            // Keep 3D models visible! Status stays "Card Found"
-            targetEntity.object3D.visible = true;
-            if (threedWrapper) {
-              threedWrapper.setAttribute('visible', 'true');
-              if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
-            }
-          } else if (threedState === THREED_STATE.WAITING_FOR_CARD_1MIN) {
-            // 1-minute countdown continues in background
-            targetEntity.object3D.visible = true;
-            if (threedWrapper) {
-              threedWrapper.setAttribute('visible', 'true');
-              if (threedWrapper.object3D) threedWrapper.object3D.visible = true;
-            }
-          } else if (threedState === THREED_STATE.REQUIRE_RESCAN) {
-            // Status remains "Scan card again"
-            updateStatusPill('warning', 'Scan card again');
+          } else {
+            // Case 1 — Card Not in View: Foreground 3D environment stays 100% active and untouched!
             targetEntity.object3D.visible = true;
             if (threedWrapper) {
               threedWrapper.setAttribute('visible', 'true');
