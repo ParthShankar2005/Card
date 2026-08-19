@@ -109,19 +109,31 @@
       }
     });
 
-    // Touch / Pointer Drag Orbit & Zoom Controller for 3D Mode (Floor Anchor Orbit)
+    // First-Person 360 Camera Look & Device Orientation Controller for 3D Mode
     AFRAME.registerComponent('touch-rotate', {
       init: function () {
         this.isDragging = false;
         this.previousX = 0;
         this.previousY = 0;
-        this.rotY = 0;
-        this.rotX = 0;
+        this.camYaw = 0;   // Horizontal camera angle in degrees (0 = front facing fixed assets)
+        this.camPitch = 0; // Vertical camera angle in degrees
         this.currentScale = 1.0;
         this.initialPinchDist = 0;
-        this.rotationSpeed = 0.45;
-        this.autoRotateSpeed = 0.2;
+        this.rotationSpeed = 0.4;
+        this.autoRotateSpeed = 0.15;
         this.lastInteractTime = performance.now();
+        this.initialAlpha = null;
+
+        const getCameraEl = () => document.getElementById('main-camera');
+
+        const updateCameraRotation = () => {
+          const cameraEl = getCameraEl();
+          if (cameraEl && cameraEl.object3D) {
+            cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(this.camYaw);
+            cameraEl.object3D.rotation.x = THREE.MathUtils.degToRad(this.camPitch);
+            cameraEl.object3D.rotation.z = 0;
+          }
+        };
 
         const onPointerDown = (e) => {
           if (currentMode !== MODES.THREED || !has3DUnlocked) return;
@@ -171,12 +183,11 @@
           this.previousY = clientY;
           this.lastInteractTime = performance.now();
 
-          // Full 360-degree horizontal orbit around floor anchor
-          this.rotY = (this.rotY + deltaX * this.rotationSpeed) % 360;
-          // Smooth vertical elevation tilt (-30 to +50 degrees)
-          this.rotX = Math.max(-30, Math.min(50, this.rotX + deltaY * (this.rotationSpeed * 0.45)));
+          // Camera Look: Moving mouse/touch rotates camera angle in 360 degrees
+          this.camYaw = (this.camYaw - deltaX * this.rotationSpeed) % 360;
+          this.camPitch = Math.max(-60, Math.min(60, this.camPitch + deltaY * (this.rotationSpeed * 0.45)));
 
-          this.el.setAttribute('rotation', `${this.rotX} ${this.rotY} 0`);
+          updateCameraRotation();
         };
 
         const onPointerUp = (e) => {
@@ -196,24 +207,54 @@
           this.lastInteractTime = performance.now();
         };
 
+        // Double-click or Double-tap to reset camera look angle to center (0° front view)
+        let lastTapTime = 0;
+        const onDoubleTap = (e) => {
+          if (currentMode !== MODES.THREED || !has3DUnlocked) return;
+          if (e.target.closest('#app-header') || e.target.closest('.modal-overlay')) return;
+          const now = performance.now();
+          if (now - lastTapTime < 300) {
+            this.camYaw = 0;
+            this.camPitch = 0;
+            this.currentScale = 1.0;
+            updateCameraRotation();
+            this.el.setAttribute('scale', '1 1 1');
+            this.lastInteractTime = performance.now();
+          }
+          lastTapTime = now;
+        };
+
+        // Device Orientation (Phone Physical Turning / Gyroscope Blend on Camera)
+        const onDeviceOrientation = (e) => {
+          if (currentMode !== MODES.THREED || !has3DUnlocked || this.isDragging) return;
+          if (e.alpha === null || e.alpha === undefined) return;
+
+          if (this.initialAlpha === null) {
+            this.initialAlpha = e.alpha;
+          }
+          const deltaHeading = (e.alpha - this.initialAlpha);
+          if (Math.abs(deltaHeading) > 0.8) {
+            const cameraEl = getCameraEl();
+            if (cameraEl && cameraEl.object3D) {
+              const effectiveYaw = this.camYaw + deltaHeading;
+              cameraEl.object3D.rotation.y = THREE.MathUtils.degToRad(effectiveYaw);
+            }
+          }
+        };
+
         window.addEventListener('mousedown', onPointerDown, { passive: true });
         window.addEventListener('mousemove', onPointerMove, { passive: true });
         window.addEventListener('mouseup', onPointerUp, { passive: true });
+        window.addEventListener('click', onDoubleTap, { passive: true });
 
         window.addEventListener('touchstart', onPointerDown, { passive: true });
         window.addEventListener('touchmove', onPointerMove, { passive: true });
         window.addEventListener('touchend', onPointerUp, { passive: true });
+        window.addEventListener('touchend', onDoubleTap, { passive: true });
         window.addEventListener('wheel', onWheel, { passive: false });
-      },
-      tick: function (t, dt) {
-        // Gentle ambient auto-rotation when user is idle in 3D Mode
-        if (currentMode === MODES.THREED && has3DUnlocked && !this.isDragging && dt) {
-          if (performance.now() - this.lastInteractTime > 3000) {
-            const rot = this.el.getAttribute('rotation') || { x: 0, y: 0, z: 0 };
-            const deltaRot = (this.autoRotateSpeed * dt) / 1000 * 15;
-            this.rotY = (rot.y + deltaRot) % 360;
-            this.el.setAttribute('rotation', `${rot.x} ${this.rotY} ${rot.z}`);
-          }
+
+        if (window.DeviceOrientationEvent) {
+          window.addEventListener('deviceorientation', onDeviceOrientation, { passive: true });
         }
       }
     });
@@ -538,6 +579,9 @@
         threedWrapper.setAttribute('visible', 'false');
         if (threedWrapper.object3D) threedWrapper.object3D.visible = false;
       }
+      const cameraEl = document.getElementById('main-camera');
+      if (cameraEl && cameraEl.object3D) cameraEl.object3D.rotation.set(0, 0, 0);
+
       if (gestureHint) gestureHint.classList.add('hidden');
 
       if (statusPill) statusPill.className = 'status-pill searching';
