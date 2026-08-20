@@ -12,13 +12,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from project root (parent of this scripts folder)
-const ROOT_DIR = path.join(__dirname, '..');
-app.use(express.static(ROOT_DIR));
+// Serve static files from root directory
+app.use(express.static(__dirname));
 
 // Main route fallback
 app.get('*', (req, res) => {
-  res.sendFile(path.join(ROOT_DIR, 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 http.createServer(app).listen(PORT, () => {
