@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "build": "echo 'Build complete'",
-    "start": "echo 'Static hosting'"
+    "start": "node scripts/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
   }
 }
