@@ -572,13 +572,13 @@ a-scene {
    5. MODE SELECTION MODAL
    ========================================================================== */
 .mode-select-modal-card {
-  width: min(92%, 390px);
+  width: min(94%, 480px);
 }
 
 .mode-options-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
   width: 100%;
   margin-top: 4px;
 }
@@ -869,4 +869,243 @@ a-scene {
   .modal-title {
     font-size: 1.15rem;
   }
+
+  .mode-select-modal-card {
+    width: min(96%, 420px);
+    padding: 20px 10px;
+  }
+
+  .mode-options-row {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+
+  .mode-btn-card {
+    padding: 12px 4px;
+    gap: 6px;
+  }
+
+  .mode-btn-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 0.95rem;
+  }
+
+  .mode-btn-title {
+    font-size: 0.82rem;
+  }
+
+  .mode-btn-sub {
+    font-size: 0.62rem;
+  }
+}
+
+/* ==========================================================================
+   8. RING VIRTUAL TRY-ON MODE (DIRECT WEBCAM & MEDIAPIPE OVERLAY STYLES)
+   ========================================================================== */
+.direct-camera-viewport {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #000000;
+  overflow: hidden;
+  z-index: 10;
+  transition: opacity 0.35s ease;
+}
+
+.direct-camera-viewport.hidden {
+  display: none !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Video Stream & Overlay Canvas */
+#tryon-webcam, #tryon-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#tryon-webcam {
+  opacity: 1;
+  z-index: 11;
+}
+
+#tryon-canvas {
+  z-index: 12;
+  pointer-events: none;
+}
+
+/* Camera Stream Mirroring Controls */
+#tryon-webcam.mirrored, #tryon-canvas.mirrored {
+  transform: scaleX(-1);
+}
+
+#tryon-webcam.unmirrored, #tryon-canvas.unmirrored {
+  transform: scaleX(1);
+}
+
+/* Floating Horizontal Expandable Finger Selector */
+.expandable-finger-wrapper {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+}
+
+/* Collapsed Main Trigger Button */
+.finger-trigger-btn {
+  background: rgba(10, 18, 36, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(201, 169, 110, 0.6); /* Champagne Gold Rim */
+  color: #ffffff;
+  padding: 10px 22px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(201, 169, 110, 0.35);
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.finger-trigger-btn i.fa-gem {
+  color: #82b2df;
+  font-size: 1.05rem;
+}
+
+.trigger-icon {
+  font-size: 0.72rem;
+  color: #c9a96e;
+  transition: transform 0.3s ease;
+}
+
+.finger-trigger-btn:hover {
+  transform: scale(1.06);
+  border-color: #c9a96e;
+  box-shadow: 0 8px 35px rgba(0, 0, 0, 0.7), 0 0 25px rgba(201, 169, 110, 0.5);
+}
+
+.finger-trigger-btn.active-open .trigger-icon {
+  transform: rotate(180deg);
+}
+
+/* Expanded Horizontal Options Bar */
+.horizontal-finger-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 18, 36, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(201, 169, 110, 0.6);
+  padding: 6px;
+  border-radius: 40px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(201, 169, 110, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px) scale(0.9);
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: absolute;
+  bottom: 0;
+  white-space: nowrap;
+}
+
+.horizontal-finger-bar.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-55px) scale(1);
+}
+
+.finger-option-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  border-radius: 30px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: all 0.25s ease;
+}
+
+.finger-option-btn .num {
+  font-family: 'Cinzel', serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #c9a96e;
+}
+
+.finger-option-btn .label {
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.finger-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.finger-option-btn:hover {
+  color: #fff;
+  background: rgba(201, 169, 110, 0.18);
+  border-color: rgba(201, 169, 110, 0.4);
+}
+
+.finger-option-btn.active {
+  background: linear-gradient(135deg, rgba(201, 169, 110, 0.35), rgba(130, 178, 223, 0.25));
+  border: 1px solid #c9a96e;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(201, 169, 110, 0.5);
+}
+
+.finger-option-btn.active .num {
+  color: #ffffff;
+}
+
+/* Loading Placeholder */
+.camera-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: #ffffff;
+  z-index: 15;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--sj-diamond-ice);
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

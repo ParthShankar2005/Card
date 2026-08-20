@@ -22,7 +22,8 @@
     LOADING: 'LOADING',
     SELECT: 'SELECT',
     AR: 'AR',
-    THREED: 'THREED'
+    THREED: 'THREED',
+    TRYON: 'TRYON'
   };
 
   // Port 5000 is the offline Dev Bypass Mode for rapid model inspection
@@ -844,6 +845,326 @@
   }
 
   // ==========================================================================
+  // 4C. RING VIRTUAL TRY-ON ENGINE (MEDIAPIPE HANDS & OVERLAY)
+  // ==========================================================================
+  const tryOnState = {
+    targetFinger: 'INDEX',
+    diamondScaleRatio: 0.48,
+    detConf: 0.7,
+    trackConf: 0.7,
+    isInitialized: false,
+    isRunning: false
+  };
+
+  let tryOnCameraHelper = null;
+  let tryOnHandsEngine = null;
+
+  const diamondImg = new Image();
+  let diamondImgLoaded = false;
+  diamondImg.src = './assets/daimond.png';
+  diamondImg.onload = () => {
+    diamondImgLoaded = true;
+  };
+
+  const smoothedStates = {
+    'Left': { x: null, y: null, angle: null, size: null, visible: false },
+    'Right': { x: null, y: null, angle: null, size: null, visible: false }
+  };
+
+  function setupTryOnUIEvents() {
+    const btnFingerTrigger = document.getElementById('btn_finger_trigger');
+    const horizontalFingerBar = document.getElementById('horizontal_finger_bar');
+    const triggerText = document.getElementById('trigger_text');
+    const fingerOptionBtns = document.querySelectorAll('.finger-option-btn');
+
+    if (btnFingerTrigger && horizontalFingerBar) {
+      btnFingerTrigger.onclick = (e) => {
+        e.stopPropagation();
+        horizontalFingerBar.classList.toggle('open');
+        btnFingerTrigger.classList.toggle('active-open');
+      };
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.expandable-finger-wrapper')) {
+          if (horizontalFingerBar) horizontalFingerBar.classList.remove('open');
+          if (btnFingerTrigger) btnFingerTrigger.classList.remove('active-open');
+        }
+      });
+    }
+
+    fingerOptionBtns.forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const selectedFinger = btn.dataset.finger;
+        tryOnState.targetFinger = selectedFinger;
+
+        if (triggerText) triggerText.textContent = selectedFinger;
+
+        fingerOptionBtns.forEach(b => {
+          if (b.dataset.finger === selectedFinger) {
+            b.classList.add('active');
+          } else {
+            b.classList.remove('active');
+          }
+        });
+
+        if (horizontalFingerBar) horizontalFingerBar.classList.remove('open');
+        if (btnFingerTrigger) btnFingerTrigger.classList.remove('active-open');
+      };
+    });
+  }
+
+  function isHandFullyInFrame(landmarks) {
+    if (!landmarks || landmarks.length < 21) return false;
+
+    let mcpIdx = 5;
+    let pipIdx = 6;
+    if (tryOnState.targetFinger === 'MIDDLE') { mcpIdx = 9; pipIdx = 10; }
+    else if (tryOnState.targetFinger === 'RING') { mcpIdx = 13; pipIdx = 14; }
+    else if (tryOnState.targetFinger === 'PINKY') { mcpIdx = 17; pipIdx = 18; }
+
+    const pMcp = landmarks[mcpIdx];
+    const pPip = landmarks[pipIdx];
+
+    if (!pMcp || !pPip || typeof pMcp.x !== 'number' || typeof pPip.x !== 'number') return false;
+
+    const minBound = 0.005;
+    const maxBound = 0.995;
+
+    if (pMcp.x < minBound || pMcp.x > maxBound || pMcp.y < minBound || pMcp.y > maxBound) return false;
+    if (pPip.x < minBound || pPip.x > maxBound || pPip.y < minBound || pPip.y > maxBound) return false;
+
+    return true;
+  }
+
+  function getHandOrientation(landmarks, handedness) {
+    if (!landmarks || landmarks.length < 21) return { isBackOfHand: true };
+
+    const p0 = landmarks[0];   // Wrist
+    const p5 = landmarks[5];   // Index MCP
+    const p9 = landmarks[9];   // Middle MCP
+    const p17 = landmarks[17]; // Pinky MCP
+
+    const anchor = p0 || p9;
+
+    const v1x = p5.x - anchor.x;
+    const v1y = p5.y - anchor.y;
+    const v2x = p17.x - anchor.x;
+    const v2y = p17.y - anchor.y;
+
+    const crossZ = (v1x * v2y) - (v1y * v2x);
+    const isRight = (handedness === 'Right');
+
+    const isBackOfHand = isRight ? (crossZ < 0) : (crossZ > 0);
+    return { isBackOfHand };
+  }
+
+  function drawDiamondOnHandTop(canvasCtx, landmarks, handedness, width, height) {
+    const handKey = (handedness === 'Left' || handedness === 'Right') ? handedness : 'Right';
+    const smoothedState = smoothedStates[handKey];
+
+    if (!landmarks || landmarks.length < 21) {
+      smoothedState.visible = false;
+      return;
+    }
+
+    if (!isHandFullyInFrame(landmarks)) {
+      smoothedState.visible = false;
+      return;
+    }
+
+    const orientation = getHandOrientation(landmarks, handedness);
+    if (!orientation.isBackOfHand) {
+      smoothedState.visible = false;
+      return;
+    }
+
+    if (!diamondImgLoaded) return;
+
+    let mcpIdx = 5;
+    let pipIdx = 6;
+    if (tryOnState.targetFinger === 'MIDDLE') { mcpIdx = 9; pipIdx = 10; }
+    else if (tryOnState.targetFinger === 'RING') { mcpIdx = 13; pipIdx = 14; }
+    else if (tryOnState.targetFinger === 'PINKY') { mcpIdx = 17; pipIdx = 18; }
+
+    const pMcp = landmarks[mcpIdx];
+    const pPip = landmarks[pipIdx];
+
+    const rawX = ((pMcp.x + pPip.x) / 2) * width;
+    const rawY = ((pMcp.y + pPip.y) / 2) * height;
+
+    const dx = (pPip.x - pMcp.x) * width;
+    const dy = (pPip.y - pMcp.y) * height;
+    const rawAngle = Math.atan2(dy, dx) + Math.PI / 2;
+
+    const pIndexMcp = landmarks[5];
+    const pIndexPip = landmarks[6];
+    const indexLength = Math.hypot((pIndexPip.x - pIndexMcp.x) * width, (pIndexPip.y - pIndexMcp.y) * height);
+    const ratio = tryOnState.diamondScaleRatio || 0.48;
+    const rawSize = Math.max(12, Math.min(width * 0.15, indexLength * ratio));
+
+    if (!smoothedState.visible || smoothedState.x === null) {
+      smoothedState.x = rawX;
+      smoothedState.y = rawY;
+      smoothedState.angle = rawAngle;
+      smoothedState.size = rawSize;
+      smoothedState.visible = true;
+    } else {
+      const deltaDist = Math.hypot(rawX - smoothedState.x, rawY - smoothedState.y);
+      if (deltaDist > 1.0) {
+        const aPos = Math.min(0.35, Math.max(0.08, deltaDist * 0.02));
+        smoothedState.x += (rawX - smoothedState.x) * aPos;
+        smoothedState.y += (rawY - smoothedState.y) * aPos;
+      }
+
+      let dAngle = rawAngle - smoothedState.angle;
+      while (dAngle < -Math.PI) dAngle += Math.PI * 2;
+      while (dAngle > Math.PI) dAngle -= Math.PI * 2;
+
+      const aAngle = Math.min(0.5, Math.max(0.18, Math.abs(dAngle) * 0.7));
+      smoothedState.angle += dAngle * aAngle;
+
+      const dSize = rawSize - smoothedState.size;
+      if (Math.abs(dSize) > 0.8) {
+        smoothedState.size += dSize * 0.1;
+      }
+    }
+
+    const { x, y, angle, size } = smoothedState;
+
+    canvasCtx.save();
+    canvasCtx.translate(x, y);
+    canvasCtx.rotate(angle);
+
+    canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    canvasCtx.shadowBlur = 10;
+    canvasCtx.shadowOffsetX = 1;
+    canvasCtx.shadowOffsetY = 4;
+
+    canvasCtx.drawImage(
+      diamondImg,
+      -size / 2,
+      -size / 2,
+      size,
+      size
+    );
+
+    canvasCtx.restore();
+  }
+
+  function onTryOnResults(results) {
+    const loader = document.getElementById('tryon-camera-loader');
+    if (loader && loader.style.display !== 'none') {
+      loader.style.display = 'none';
+    }
+
+    const webcamEl = document.getElementById('tryon-webcam');
+    const canvasEl = document.getElementById('tryon-canvas');
+    if (!canvasEl || !webcamEl) return;
+
+    const canvasCtx = canvasEl.getContext('2d');
+    if (webcamEl.videoWidth && webcamEl.videoHeight) {
+      canvasEl.width = webcamEl.videoWidth;
+      canvasEl.height = webcamEl.videoHeight;
+    }
+
+    const width = canvasEl.width;
+    const height = canvasEl.height;
+
+    canvasCtx.clearRect(0, 0, width, height);
+
+    if (results.multiHandLandmarks && results.multiHandedness && results.multiHandLandmarks.length > 0) {
+      const landmarks = results.multiHandLandmarks[0];
+      const handedness = results.multiHandedness[0].label;
+
+      drawDiamondOnHandTop(canvasCtx, landmarks, handedness, width, height);
+    } else {
+      smoothedStates['Left'].visible = false;
+      smoothedStates['Right'].visible = false;
+    }
+  }
+
+  function startTryOnSession() {
+    const webcamEl = document.getElementById('tryon-webcam');
+    const container = document.getElementById('tryon-container');
+    const loader = document.getElementById('tryon-camera-loader');
+
+    if (!webcamEl || !container) return;
+
+    container.classList.remove('hidden');
+    container.style.display = 'block';
+    if (loader) loader.style.display = 'flex';
+
+    if (!tryOnState.isInitialized) {
+      setupTryOnUIEvents();
+      if (typeof Hands !== 'undefined') {
+        tryOnHandsEngine = new Hands({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        tryOnHandsEngine.setOptions({
+          maxNumHands: 1,
+          modelComplexity: 1,
+          minDetectionConfidence: tryOnState.detConf,
+          minTrackingConfidence: tryOnState.trackConf
+        });
+
+        tryOnHandsEngine.onResults(onTryOnResults);
+        tryOnState.isInitialized = true;
+      }
+    }
+
+    if (typeof Camera !== 'undefined' && tryOnHandsEngine) {
+      if (tryOnCameraHelper) {
+        tryOnCameraHelper.start().catch(console.warn);
+        tryOnState.isRunning = true;
+        return;
+      }
+
+      tryOnCameraHelper = new Camera(webcamEl, {
+        onFrame: async () => {
+          if (tryOnHandsEngine && currentMode === MODES.TRYON) {
+            await tryOnHandsEngine.send({ image: webcamEl });
+          }
+        },
+        width: 1280,
+        height: 720,
+        facingMode: 'environment'
+      });
+
+      tryOnCameraHelper.start().catch(err => {
+        console.warn("Front/default camera fallback for Try On:", err);
+        const fallbackCam = new Camera(webcamEl, {
+          onFrame: async () => {
+            if (tryOnHandsEngine && currentMode === MODES.TRYON) {
+              await tryOnHandsEngine.send({ image: webcamEl });
+            }
+          },
+          width: 1280,
+          height: 720
+        });
+        fallbackCam.start();
+        tryOnCameraHelper = fallbackCam;
+      });
+      tryOnState.isRunning = true;
+    }
+  }
+
+  function stopTryOnSession() {
+    const container = document.getElementById('tryon-container');
+    if (container) {
+      container.classList.add('hidden');
+      container.style.display = 'none';
+    }
+    if (tryOnCameraHelper) {
+      tryOnCameraHelper.stop().catch(() => {});
+    }
+    tryOnState.isRunning = false;
+    smoothedStates['Left'].visible = false;
+    smoothedStates['Right'].visible = false;
+  }
+
+  // ==========================================================================
   // 5. MODE SWITCHER & SELECTION CONTROLLER
   // ==========================================================================
   window.handleOpenModeSelect = function () {
@@ -876,6 +1197,11 @@
     if (selectedMode === 'AR') {
       currentMode = MODES.AR;
       if (modeLabel) modeLabel.textContent = 'AR Mode';
+
+      // Stop Try On Session & Restore A-Frame Scene
+      stopTryOnSession();
+      const arSceneEl = document.getElementById('ar-scene');
+      if (arSceneEl) arSceneEl.style.display = 'block';
 
       // Hide 3D Control Mode Toggle Button
       const ctrlToggleBtn = document.getElementById('btn-control-toggle');
@@ -918,6 +1244,11 @@
     } else if (selectedMode === 'THREED') {
       currentMode = MODES.THREED;
       if (modeLabel) modeLabel.textContent = '3D Mode';
+
+      // Stop Try On Session & Restore A-Frame Scene
+      stopTryOnSession();
+      const arSceneEl = document.getElementById('ar-scene');
+      if (arSceneEl) arSceneEl.style.display = 'block';
 
       // Show 3D Control Mode Toggle Button
       const ctrlToggleBtn = document.getElementById('btn-control-toggle');
@@ -970,6 +1301,51 @@
       }
 
       startARSession();
+
+    } else if (selectedMode === 'TRYON') {
+      currentMode = MODES.TRYON;
+      if (modeLabel) modeLabel.textContent = 'Try On Mode';
+
+      // Hide 3D Control Mode Toggle Button & AR Reticle
+      const ctrlToggleBtn = document.getElementById('btn-control-toggle');
+      if (ctrlToggleBtn) ctrlToggleBtn.classList.add('hidden');
+
+      const reticle = document.getElementById('scanning-reticle');
+      if (reticle) {
+        reticle.classList.add('hidden');
+        reticle.style.display = 'none';
+      }
+
+      // Clear 3D Lifecycle Timers & Unfreeze
+      clearConfirmationTimer();
+      if (background30SecTimer) { clearTimeout(background30SecTimer); background30SecTimer = null; }
+
+      // Hide AR & 3D content wrappers
+      if (arWrapper) {
+        arWrapper.setAttribute('visible', 'false');
+        if (arWrapper.object3D) arWrapper.object3D.visible = false;
+      }
+      if (threedWrapper) {
+        threedWrapper.setAttribute('visible', 'false');
+        if (threedWrapper.object3D) threedWrapper.object3D.visible = false;
+      }
+
+      // Hide A-Frame scene element
+      const arSceneEl = document.getElementById('ar-scene');
+      if (arSceneEl) arSceneEl.style.display = 'none';
+
+      // Stop MindAR system if running
+      if (arSceneEl && arSceneEl.systems && arSceneEl.systems['mindar-image-system'] && isARRunning) {
+        try {
+          arSceneEl.systems['mindar-image-system'].stop();
+          isARRunning = false;
+        } catch (e) {
+          console.warn("Stopping MindAR for Try-On mode:", e);
+        }
+      }
+
+      updateStatusPill('tracking', 'Virtual Ring Try-On');
+      startTryOnSession();
     }
   };
 
@@ -992,6 +1368,7 @@
       { url: './assets/AR/shivam_logo.png', type: 'image' },
       { url: './assets/AR/Booth.png', type: 'image' },
       { url: './assets/cards/targets.png', type: 'image' },
+      { url: './assets/daimond.png', type: 'image' },
       { url: './assets/targets.mind', type: 'fetch' }
     ];
 

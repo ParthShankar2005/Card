@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diamond Ring Virtual Try-On</title>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- MediaPipe Hands & Camera CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+  <!-- Direct Full-Bleed Camera & Ring Viewport -->
+  <div id="viewport_card" class="direct-camera-viewport">
+    <!-- Camera Stream -->
+    <video id="webcam" autoplay playsinline muted></video>
+    
+    <!-- Diamond Overlay Canvas -->
+    <canvas id="output_canvas"></canvas>
+    
+    <!-- Floating Horizontal Expandable Finger Selector -->
+    <div class="expandable-finger-wrapper">
+      <!-- Collapsed Main Trigger Button -->
+      <button id="btn_finger_trigger" class="finger-trigger-btn" title="Choose Ring Finger Position">
+        <i class="fa-solid fa-gem"></i>
+        <span id="trigger_text" class="trigger-text">INDEX</span>
+        <i class="fa-solid fa-chevron-up trigger-icon"></i>
+      </button>
+
+      <!-- Expanded Horizontal Finger Options Bar -->
+      <div id="horizontal_finger_bar" class="horizontal-finger-bar">
+        <button class="finger-option-btn active" data-finger="INDEX" title="Index Finger">
+          <span class="num">I</span>
+          <span class="label">INDEX</span>
+        </button>
+        <div class="finger-divider"></div>
+        <button class="finger-option-btn" data-finger="MIDDLE" title="Middle Finger">
+          <span class="num">II</span>
+          <span class="label">MIDDLE</span>
+        </button>
+        <div class="finger-divider"></div>
+        <button class="finger-option-btn" data-finger="RING" title="Ring Finger">
+          <span class="num">III</span>
+          <span class="label">RING</span>
+        </button>
+        <div class="finger-divider"></div>
+        <button class="finger-option-btn" data-finger="PINKY" title="Pinky Finger">
+          <span class="num">IV</span>
+          <span class="label">PINKY</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Camera Loading Spinner -->
+    <div id="camera_loader" class="camera-placeholder">
+      <div class="spinner"></div>
+      <p>Initializing Camera...</p>
+    </div>
+  </div>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
