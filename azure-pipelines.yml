@@ -1,18 +1,14 @@
 trigger:
   branches:
     include:
-    - main
     - uat
 
 variables:
 
-- group: AI_ALL_VARIABLES
+- group: AR_ALL_VARIABLES
 
 - name: SIT_PATH
-  value: "/var/www/aiapi.testsjit.in/"
-
-- name: PROD_PATH
-  value: "/var/www/aiapi.sjintelligence.in"
+  value: "/var/www/ar.testsjit.in/"
 
 stages:
 
@@ -50,7 +46,7 @@ stages:
                 "body": [
                   {
                     "type": "TextBlock",
-                    "text": "🚀 AI API Deployment Started..",
+                    "text": "🚀 AR Application Deployment Started..",
                     "weight": "Bolder",
                     "size": "Large",
                     "color": "Good"
@@ -97,7 +93,7 @@ stages:
 
   dependsOn: Notify_Start
 
-  condition: eq(variables['Build.SourceBranch'], 'refs/heads/uat')
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
 
   jobs:
 
@@ -169,7 +165,7 @@ stages:
                 "body": [
                   {
                     "type": "TextBlock",
-                    "text": "✅ SIT AI API Deployment Successful",
+                    "text": "✅ AR Deployment Successful",
                     "weight": "Bolder",
                     "size": "Large",
                     "color": "Good"
@@ -179,7 +175,7 @@ stages:
                     "facts": [
                       {
                         "title": "Application:",
-                        "value": "AI API Deployment"
+                        "value": "AR Deployment"
                       },
                       {
                         "title": "Environment:",
@@ -231,7 +227,7 @@ stages:
                 "body": [
                   {
                     "type": "TextBlock",
-                    "text": "❌ SIT AI API Deployment Failed",
+                    "text": "❌ AR Deployment Failed",
                     "weight": "Bolder",
                     "size": "Large",
                     "color": "Good"
@@ -241,7 +237,7 @@ stages:
                     "facts": [
                       {
                         "title": "Application:",
-                        "value": "AI API Deployment"
+                        "value": "AR Deployment"
                       },
                       {
                         "title": "Environment:",
@@ -277,184 +273,3 @@ stages:
 
       condition: failed()
 
-# =========================================================
-# PROD DEPLOYMENT
-# =========================================================
-- stage: Deploy_PROD
-
-  displayName: "Deploy PROD"
-
-  dependsOn: Notify_Start
-
-  condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
-
-  jobs:
-
-  - job: DeployPROD
-
-    displayName: "Deploy PROD Container"
-
-    pool:
-      name: SJVM3
-      demands:
-      - agent.name -equals shivamagent
-
-    steps:
-
-    - checkout: self
-      clean: true
-
-    - bash: |
-        
-        set -e
-
-        echo "Copying latest source code..."
-
-        sudo rsync -av \
-          --delete \
-          --exclude='.devcontainer' \
-          --exclude='.git' \
-          --exclude='.github' \
-          --exclude='.husky' \
-          --exclude='.vscode' \
-          "$(Build.SourcesDirectory)/" \
-          "$(PROD_PATH)/"
-
-        echo "Source copied successfully."
-
-        cd $(PROD_PATH)
-
-        echo "========== Current Directory =========="
-        pwd
-
-        sudo docker-compose down --remove-orphans
-        sudo docker-compose build --no-cache
-        sudo docker-compose up -d
-        sudo docker image prune -f
-        sudo docker-compose ps
-
-      displayName: "Build & Deploy PROD"
-
-    - bash: |
-        
-        curl -H "Content-Type: application/json" \
-        -X POST \
-        -d '{
-          "type": "message",
-          "attachments": [
-            {
-              "contentType": "application/vnd.microsoft.card.adaptive",
-              "content": {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [
-                  {
-                    "type": "TextBlock",
-                    "text": "✅ AI API PRODUCTION Deployment Successful",
-                    "weight": "Bolder",
-                    "size": "Large",
-                    "color": "Good"
-                  },
-                  {
-                    "type": "FactSet",
-                    "facts": [
-                      {
-                        "title": "Application:",
-                         "value": "AI (Libre) Deployment"
-                      },
-                      {
-                        "title": "Environment:",
-                        "value": "SIT"
-                      },
-                      {
-                        "title": "Branch:",
-                        "value": "$(Build.SourceBranchName)"
-                      },
-                      {
-                        "title": "Build:",
-                        "value": "$(Build.BuildNumber)"
-                      },
-                      {
-                        "title": "Status:",
-                        "value": "SUCCESS ✅"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "TextBlock",
-                    "text": "AI API has been successfully deployed to environment.",
-                    "wrap": true,
-                    "spacing": "Medium"
-                  }
-                ]
-              }
-            }
-          ]
-        }' "$(TEAMS_WEBHOOK_URL)"
-
-      displayName: "Teams PRODUCTION Success Notification"
-
-      condition: succeeded()
-
-    - bash: |
-        
-        curl -H "Content-Type: application/json" \
-        -X POST \
-        -d '{
-          "type": "message",
-          "attachments": [
-            {
-              "contentType": "application/vnd.microsoft.card.adaptive",
-              "content": {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [
-                  {
-                    "type": "TextBlock",
-                    "text": "❌ AI API PRODUCTION Deployment Failed",
-                    "weight": "Bolder",
-                    "size": "Large",
-                    "color": "Good"
-                  },
-                  {
-                    "type": "FactSet",
-                    "facts": [
-                      {
-                        "title": "Application:",
-                        "value": "AI API Deployment"
-                      },
-                      {
-                        "title": "Environment:",
-                        "value": "SIT"
-                      },
-                      {
-                        "title": "Branch:",
-                        "value": "$(Build.SourceBranchName)"
-                      },
-                      {
-                        "title": "Build:",
-                        "value": "$(Build.BuildNumber)"
-                      },
-                      {
-                        "title": "Status:",
-                        "value": "Failed ❌"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "TextBlock",
-                    "text": "AI API Deployment Failed.",
-                    "wrap": true,
-                    "spacing": "Medium"
-                  }
-                ]
-              }
-            }
-          ]
-        }' "$(TEAMS_WEBHOOK_URL)"
-
-      displayName: "Teams PRODUCTION Failure Notification"
-
-      condition: failed()
