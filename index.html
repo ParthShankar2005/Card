@@ -29,11 +29,12 @@
 
   <!-- MindAR Image Library for A-Frame (v1.2.5) -->
   <script src="./js/mindar-image-aframe.prod.js"></script>
-
-  <!-- MediaPipe Hands & Camera CDNs for Ring Virtual Try-On -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <!-- MediaPipe Tasks Vision -->
+  <script type="module">
+    import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+    window.MediaPipeVision = { FilesetResolver, HandLandmarker };
+    window.dispatchEvent(new Event("mediapipe-ready"));
+  </script>
 
   <!-- Application Controller Script -->
   <script src="./js/app.js?v=2.1.0" defer></script>
@@ -41,9 +42,7 @@
 
 <body>
 
-  <!-- ==========================================================================
-       1. SHIVAM JEWELS DIAMOND LOADING SCREEN
-       ========================================================================== -->
+  <!-- Loading Screen -->
   <div id="loading-screen" class="loading-screen">
     <div class="loading-content">
       <div class="loading-diamond-wrapper">
@@ -53,22 +52,19 @@
     </div>
   </div>
 
-  <!-- ==========================================================================
-       2. MODE SELECTION MODAL (AR MODE and 3D MODE - SIDE BY SIDE)
-       ========================================================================== -->
+  <!-- Mode Selection Modal -->
   <div id="mode-selection-modal" class="modal-overlay hidden">
     <div class="modal-card mode-select-modal-card">
-      <div class="modal-logo-wrapper">
-        <i class="fas fa-layer-group"></i>
+      <div class="modal-brand-header">
+        <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="modal-brand-logo" />
+        <span class="modal-brand-tagline">Select Experience</span>
       </div>
-      <h2 class="modal-title">Select Mode</h2>
-      <p class="modal-subtitle">Shivam Jewels AR</p>
 
       <div class="mode-options-row">
         <!-- Option 1: AR Mode -->
         <button class="mode-btn-card" id="btn-choose-ar" onclick="handleSelectMode('AR')">
           <div class="mode-btn-icon">
-            <i class="fas fa-vr-cardboard"></i>
+            <i class="fas fa-camera"></i>
           </div>
           <span class="mode-btn-title">AR Mode</span>
           <span class="mode-btn-sub">SJ AR Card</span>
@@ -83,67 +79,54 @@
           <span class="mode-btn-sub">SJ 3D Card</span>
         </button>
 
-        <!-- Option 3: Try On Mode -->
+        <!-- Option 3: Virtual Try-On -->
         <button class="mode-btn-card" id="btn-choose-tryon" onclick="handleSelectMode('TRYON')">
           <div class="mode-btn-icon">
-            <i class="fas fa-gem"></i>
+            <i class="fas fa-hand-sparkles"></i>
           </div>
           <span class="mode-btn-title">Try On</span>
-          <span class="mode-btn-sub">Virtual Ring Try-On</span>
+          <span class="mode-btn-sub">Virtual Ring</span>
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ==========================================================================
-       3. TOP BAR
-       ========================================================================== -->
+  <!-- Top Bar -->
   <header id="app-header">
-    <!-- Status Pill Indicator (Left) -->
     <div id="status-pill" class="status-pill searching">
       <div class="status-dot"></div>
       <span id="status-text">Scan SJ AR Card</span>
     </div>
 
-    <!-- Mode Switcher & Reset Button (Center) -->
     <button id="btn-switch-mode" class="header-mode-btn" onclick="handleOpenModeSelect()"
       title="Switch Experience Mode">
       <i class="fas fa-sliders-h"></i>
       <span id="current-mode-label">Mode</span>
     </button>
 
-    <!-- Brand Logo (Right Corner, Pure White) -->
     <div class="brand-badge">
       <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
     </div>
   </header>
 
-  <!-- ==========================================================================
-       4. SCANNING RETICLE & TARGET GUIDANCE
-       ========================================================================== -->
+  <!-- Scanning Reticle & Guidance -->
   <div id="scanning-reticle">
-    <!-- Transparent Shivam Jewels Full Invitation Card Target Preview -->
     <div class="card-target-preview-wrapper">
       <img src="./assets/cards/targets.png" alt="Shivam Jewels Card Preview" class="card-target-preview-img" />
     </div>
 
-    <!-- Single Clean Helper Text -->
     <div class="scanning-label" id="scanning-label-text">
       Point camera at SJ AR Card
     </div>
   </div>
 
-  <!-- ==========================================================================
-       5. 3D GESTURE INTERACTION HINT (FOR 3D MODE)
-       ========================================================================== -->
+  <!-- 3D Gesture Hint -->
   <div id="gesture-hint" class="gesture-hint hidden">
     <i class="fas fa-compass"></i>
     <span id="gesture-hint-text">Gyro Mode Active — Turn phone to explore</span>
   </div>
 
-  <!-- ==========================================================================
-       5B. 3D CONTROL MODE TOGGLE BUTTON (BOTTOM RIGHT FAB)
-       ========================================================================== -->
+  <!-- 3D Control Mode Toggle Button -->
   <button id="btn-control-toggle" class="control-toggle-btn hidden" onclick="handleToggleControlMode()"
     title="Switch between Gyroscope and Touch Mode">
     <div class="control-toggle-icon" id="control-toggle-icon">
@@ -152,9 +135,7 @@
     <span class="control-toggle-text" id="control-toggle-text">Gyro</span>
   </button>
 
-  <!-- ==========================================================================
-       6. MAIN A-FRAME SCENE CONTAINER (AR & 3D MODES)
-       ========================================================================== -->
+  <!-- Main A-Frame AR/3D Scene -->
   <a-scene id="ar-scene"
     mindar-image="imageTargetSrc: ./assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; filterMinCF: 0.0001; filterBeta: 0.001; missTolerance: 12;"
     color-space="sRGB"
@@ -184,34 +165,27 @@
       <a-entity light="type: directional; color: #82b2df; intensity: 2.2" position="-2 1 3"></a-entity>
       <a-entity light="type: point; color: #ffffff; intensity: 3.5; distance: 6" position="0 0.5 1"></a-entity>
 
-      <!-- ========================================================================
-           1. AR MODE CONTENT (Continuous Live Tracking Only)
-           ======================================================================== -->
+      <!-- AR Mode Content -->
       <a-entity id="ar-content-wrapper" visible="false" scale="1 1 1">
 
-        <!-- Shivam Jewels Booth (Left Wing) -->
         <a-plane id="booth-plane" src="#Booth" position="-1.3 0 -0.35" rotation="0 25 0" width="1.0" height="1.25"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- Shivam Jewels Banner (Right Wing) -->
-        <a-plane id="banner-plane" src="#shivamBanner" position="1.3 0 -0.35" rotation="0 -25 0" width="1.0" height="1.25"
-          material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
+        <a-plane id="banner-plane" src="#shivamBanner" position="1.3 0 -0.35" rotation="0 -25 0" width="1.0"
+          height="1.25" material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- Shivam Jewels Official Logo (Center Top) -->
         <a-plane id="logo-plane" src="#shivamLogo" position="0 0.85 0" rotation="0 0 0" width="1.0" height="0.26"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- Center Bottom: Flat Gem Ring Pedestal (Exact Center) -->
         <a-entity id="ring-model-container" position="0 -0.5 0" rotation="0 0 0">
           <a-gltf-model id="ring-model-entity" src="#glbRing" scale="0.2 0.2 0.2" position="0 0 0" rotation="0 0 0"
             play-all-animations>
           </a-gltf-model>
         </a-entity>
 
-        <!-- Center: Shivam 3D Model Showcase (Exact Center) -->
         <a-entity id="shivam-model-container" position="0 -0.4 0" rotation="0 -90 0">
           <a-gltf-model id="shivam-model-entity" src="#glbShivam" scale="3 3 3" position="0 0 0" rotation="0 0 0"
             play-all-animations>
@@ -219,34 +193,27 @@
         </a-entity>
       </a-entity>
 
-      <!-- ========================================================================
-           2. 3D MODE CONTENT (1:1 Clean Models + 30% Far Camera Distance + 360° Look)
-           ======================================================================== -->
+      <!-- 3D Mode Content -->
       <a-entity id="threed-content-wrapper" visible="false" position="0 0 -0.45" scale="0.75 0.75 0.75" touch-rotate>
 
-        <!-- Shivam Jewels Booth 3D (Left Wing) -->
         <a-plane id="booth-plane-3d" src="#Booth" position="-1.3 0 -0.35" rotation="0 25 0" width="1.0" height="1.25"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- Shivam Jewels Banner 3D (Right Wing) -->
         <a-plane id="banner-plane-3d" src="#shivamBanner" position="1.3 0 -0.35" rotation="0 -25 0" width="1.0"
           height="1.25" material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- Shivam Jewels Official Logo 3D (Center Top) -->
         <a-plane id="logo-plane-3d" src="#shivamLogo" position="0 0.85 0" rotation="0 0 0" width="1.0" height="0.26"
           material="transparent: true; alphaTest: 0.2; side: double; shader: flat; depthTest: true;">
         </a-plane>
 
-        <!-- Center Bottom: Flat Gem Ring Pedestal 3D (Exact Center) -->
         <a-entity id="ring-model-container-3d" position="0 -0.5 0" rotation="0 0 0">
-          <a-gltf-model id="ring-model-entity-3d" src="#glbRing" scale="0.2 0.2 0.2" position="0 0 0"
-            rotation="0 0 0" play-all-animations>
+          <a-gltf-model id="ring-model-entity-3d" src="#glbRing" scale="0.2 0.2 0.2" position="0 0 0" rotation="0 0 0"
+            play-all-animations>
           </a-gltf-model>
         </a-entity>
 
-        <!-- Center: Shivam 3D Model Showcase 3D (Exact Center) -->
         <a-entity id="shivam-model-container-3d" position="0 -0.4 0" rotation="0 -90 0">
           <a-gltf-model id="shivam-model-entity-3d" src="#glbShivam" scale="3 3 3" position="0 0 0" rotation="0 0 0"
             play-all-animations>
@@ -258,59 +225,85 @@
 
   </a-scene>
 
-  <!-- ==========================================================================
-       6B. TRY ON MODE (DIRECT WEBCAM & MEDIAPIPE HAND TRACKING OVERLAY)
-       ========================================================================== -->
-  <div id="tryon-container" class="direct-camera-viewport hidden">
-    <!-- Webcam Stream -->
-    <video id="tryon-webcam" autoplay playsinline muted></video>
+  <!-- Virtual Ring Try-On Viewport -->
+  <main id="viewport" class="direct-camera-viewport hidden">
+    <video id="webcam" autoplay playsinline muted></video>
 
-    <!-- Diamond Overlay Canvas -->
-    <canvas id="tryon-canvas"></canvas>
+    <!-- 3D Canvas with Configurable Ring Model Path -->
+    <canvas id="three-canvas" data-model="./assets/glb/ringwithdaimond.glb"></canvas>
 
-    <!-- Floating Horizontal Expandable Finger Selector -->
-    <div class="expandable-finger-wrapper">
-      <!-- Collapsed Main Trigger Button -->
-      <button id="btn_finger_trigger" class="finger-trigger-btn" title="Choose Ring Finger Position">
-        <i class="fa-solid fa-gem"></i>
-        <span id="trigger_text" class="trigger-text">INDEX</span>
-        <i class="fa-solid fa-chevron-up trigger-icon"></i>
-      </button>
+    <!-- Top Brand Header Bar matching SJ Card Layout -->
+    <header id="top-bar">
+      <!-- Status Pill Indicator (Left) -->
+      <div id="tryon-status-pill" class="status-pill tracking">
+        <div class="status-dot"></div>
+        <span id="tryon-status-text">Point hand at Camera</span>
+      </div>
 
-      <!-- Expanded Horizontal Finger Options Bar -->
-      <div id="horizontal_finger_bar" class="horizontal-finger-bar">
-        <button class="finger-option-btn active" data-finger="INDEX" title="Index Finger">
-          <span class="num">I</span>
-          <span class="label">INDEX</span>
+      <!-- Controls Group (Center) -->
+      <div class="top-bar-controls">
+        <button class="header-mode-btn" onclick="handleOpenModeSelect()" title="Switch Experience Mode">
+          <i class="fas fa-sliders-h"></i>
+          <span>Mode</span>
         </button>
-        <div class="finger-divider"></div>
-        <button class="finger-option-btn" data-finger="MIDDLE" title="Middle Finger">
-          <span class="num">II</span>
-          <span class="label">MIDDLE</span>
+
+        <!-- Camera Front/Rear Switcher -->
+        <button id="btn-switch-camera" class="header-mode-btn" onclick="handleToggleCameraFacing()"
+          title="Switch Camera (Front/Rear)">
+          <i class="fas fa-camera-rotate"></i>
+          <span id="camera-facing-label">Rear</span>
         </button>
-        <div class="finger-divider"></div>
-        <button class="finger-option-btn" data-finger="RING" title="Ring Finger">
-          <span class="num">III</span>
-          <span class="label">RING</span>
-        </button>
-        <div class="finger-divider"></div>
-        <button class="finger-option-btn" data-finger="PINKY" title="Pinky Finger">
-          <span class="num">IV</span>
-          <span class="label">PINKY</span>
-        </button>
+      </div>
+
+      <!-- Brand Logo (Right Corner, Pure White) -->
+      <div class="brand-badge">
+        <img src="./assets/AR/shivam_logo.png" alt="Shivam Jewels Logo" class="brand-badge-logo" />
+      </div>
+    </header>
+
+    <!-- Animated Ghost Hand Guide Overlay -->
+    <div id="hand-guide-overlay" class="active">
+      <div id="ghost-hand-icon">
+        <svg viewBox="0 0 100 120" width="80" height="96" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 35 110 L 65 110" />
+          <path
+            d="M 35 110 C 25 80, 20 65, 25 50 C 28 40, 32 40, 35 50 L 35 25 C 35 15, 42 15, 42 25 L 42 18 C 42 8, 50 8, 50 18 L 50 20 C 50 10, 58 10, 58 20 L 58 30 C 58 22, 65 22, 65 30 L 65 60 C 70 65, 75 75, 65 110 Z" />
+          <path d="M 28 75 C 18 65, 12 55, 18 45" stroke-dasharray="3,3" opacity="0.6" />
+        </svg>
+      </div>
+      <div id="hand-guide-card">
+        <div id="hand-guide-text">PLACE YOUR HAND IN FRAME</div>
+        <div id="hand-guide-subtext">Keep fingers visible to try on the ring</div>
       </div>
     </div>
 
-    <!-- Camera Loading Spinner -->
-    <div id="tryon-camera-loader" class="camera-placeholder">
-      <div class="spinner"></div>
-      <p>Initializing Camera...</p>
-    </div>
-  </div>
+    <!-- Finger Selection Floating Popover Navigation -->
+    <nav id="finger-selector" class="finger-selector-container">
+      <button id="btn-toggle-finger" class="finger-toggle-btn" onclick="toggleFingerMenu(event)" title="Choose Finger">
+        <i class="fas fa-hand-pointer"></i>
+        <span id="selected-finger-text" class="selected-finger-label">Finger: RING</span>
+        <i id="finger-menu-chevron" class="fas fa-chevron-up toggle-chevron"></i>
+      </button>
 
-  <!-- ==========================================================================
-       7. CAMERA PERMISSION & GUIDANCE MODAL
-       ========================================================================== -->
+      <div id="finger-popover-menu" class="selector-buttons popover-menu hidden">
+        <button class="finger-btn" data-finger="index" onclick="onSelectFinger('index', event)">
+          <span class="label">INDEX</span>
+        </button>
+        <button class="finger-btn" data-finger="middle" onclick="onSelectFinger('middle', event)">
+          <span class="label">MIDDLE</span>
+        </button>
+        <button class="finger-btn active" data-finger="ring" onclick="onSelectFinger('ring', event)">
+          <span class="label">RING</span>
+        </button>
+        <button class="finger-btn" data-finger="pinky" onclick="onSelectFinger('pinky', event)">
+          <span class="label">PINKY</span>
+        </button>
+      </div>
+    </nav>
+  </main>
+
+  <!-- Camera Permission Modal -->
   <div id="permission-modal" class="modal-overlay hidden">
     <div class="modal-card">
       <div id="modal-icon" class="modal-logo-wrapper">

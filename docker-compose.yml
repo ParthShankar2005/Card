@@ -1,0 +1,7 @@
+services:
+  webar-app:
+    build: .
+    container_name: webar-app
+    ports:
+      - "8789:8789"
+    restart: unless-stopped

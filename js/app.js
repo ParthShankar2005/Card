@@ -15,9 +15,7 @@
 (function () {
   'use strict';
 
-  // ==========================================================================
-  // 1. APPLICATION CONSTANTS & STATE MANAGEMENT
-  // ==========================================================================
+  // Constants & State Management
   const MODES = {
     LOADING: 'LOADING',
     SELECT: 'SELECT',
@@ -26,20 +24,12 @@
     TRYON: 'TRYON'
   };
 
-  // Port 5000 is the offline Dev Bypass Mode for rapid model inspection
-  // Port 3000 and Production STRICTLY require a physical card scan (No URL link bypass)
-  const isBypassMode = window.location.port === '5000';
-
   let currentMode = MODES.LOADING;
   let has3DUnlocked = false;
   let isARStarting = false;
   let isARRunning = false;
-  let devSimulateTimeout = null;
-  let isSimulatedTargetFound = false;
 
-  // ==========================================================================
-  // 3D MODE — CONTINUOUS 30-SECOND BACKGROUND IMAGE TRACKING LOOP
-  // ==========================================================================
+  // 3D Mode Tracking Loop
   const THREED_STATE = {
     INITIAL_SCAN: 'INITIAL_SCAN',       // Initial: Point camera at Card (3s confirmation)
     ACTIVE_3D_LOOP: 'ACTIVE_3D_LOOP'    // 3D Mode: Foreground 3D exploration + continuous 30s background tracking loop
@@ -50,18 +40,14 @@
   let cardConfirmTimer = null;
   let background30SecTimer = null;
 
-  // ==========================================================================
-  // 3D CONTROL MODES (GYROSCOPE 360° vs MANUAL TOUCH GESTURES)
-  // ==========================================================================
+  // 3D Control Modes
   const CONTROL_MODES = {
     GYRO: 'GYRO',   // Pure Gyroscope & Compass 360° Look (Touch Drag Paused)
     TOUCH: 'TOUCH'  // Pure Touch Drag & Pinch Zoom (Gyro Sensor Paused)
   };
   let active3DControlMode = CONTROL_MODES.GYRO;
 
-  // ==========================================================================
-  // 2. A-FRAME CUSTOM COMPONENTS
-  // ==========================================================================
+  // A-Frame Custom Components
   if (typeof AFRAME !== 'undefined') {
     // Anchor & Freeze Pose Component for 3D Mode (Stops continuous card tracking after scan)
     AFRAME.registerComponent('freeze-on-lock', {
@@ -405,9 +391,7 @@
     });
   }
 
-  // ==========================================================================
-  // 3. LIFECYCLE & 30-SECOND BACKGROUND LOOP CONTROLLER
-  // ==========================================================================
+  // Lifecycle & Background Controller
   function updateStatusPill(className, text) {
     const statusPill = document.getElementById('status-pill');
     const statusText = document.getElementById('status-text');
@@ -541,68 +525,7 @@
     }
   }
 
-  function simulateTargetFound() {
-    isSimulatedTargetFound = true;
-    const targetEntity = document.getElementById('ar-target');
-    const arWrapper = document.getElementById('ar-content-wrapper');
-    const reticle = document.getElementById('scanning-reticle');
-
-    if (reticle) {
-      reticle.classList.add('hidden');
-      reticle.style.display = 'none';
-    }
-
-    if (currentMode === MODES.AR) {
-      updateStatusPill('tracking', 'SJ AR Card');
-
-      if (arWrapper) {
-        arWrapper.setAttribute('visible', 'true');
-        if (arWrapper.object3D) arWrapper.object3D.visible = true;
-        arWrapper.setAttribute('scale', '1 1 1');
-        arWrapper.emit('targetFound');
-      }
-      if (targetEntity) targetEntity.emit('targetFound');
-
-    } else if (currentMode === MODES.THREED) {
-      isCardInView = true;
-      start3SecondConfirmation(() => {
-        handleCardConfirmed();
-      });
-    }
-  }
-
-  function simulateTargetLost() {
-    isSimulatedTargetFound = false;
-    const targetEntity = document.getElementById('ar-target');
-    const arWrapper = document.getElementById('ar-content-wrapper');
-    const reticle = document.getElementById('scanning-reticle');
-
-    if (currentMode === MODES.AR) {
-      updateStatusPill('searching', 'Scan SJ AR Card');
-      if (reticle) {
-        reticle.classList.remove('hidden');
-        reticle.style.display = 'flex';
-      }
-      if (arWrapper) {
-        arWrapper.setAttribute('visible', 'false');
-        if (arWrapper.object3D) arWrapper.object3D.visible = false;
-      }
-      if (targetEntity) targetEntity.emit('targetLost');
-    } else if (currentMode === MODES.THREED) {
-      isCardInView = false;
-      clearConfirmationTimer();
-    }
-  }
-
   function showCameraGuidance(title, desc, errorDetails, isBlocked) {
-    // If on localhost dev bypass mode (port 5000), automatically proceed with simulation
-    if (isBypassMode) {
-      console.log("[Bypass Mode :5000] Auto-bypassing camera restriction on port 5000.");
-      hideCameraGuidance();
-      setTimeout(simulateTargetFound, 600);
-      return;
-    }
-
     const modalOverlay = document.getElementById('permission-modal');
     const modalIcon = document.getElementById('modal-icon');
     const modalTitle = document.getElementById('modal-title');
@@ -654,9 +577,6 @@
   }
 
   async function startARSession() {
-    if (isARRunning || isARStarting) return;
-    isARStarting = true;
-
     const btnStart = document.getElementById('btn-start-ar');
     const btnIcon = document.getElementById('btn-icon');
     const btnText = document.getElementById('btn-text');
@@ -669,12 +589,6 @@
     if (errorBox) errorBox.classList.remove('show');
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      isARStarting = false;
-      if (isBypassMode) {
-        hideCameraGuidance();
-        setTimeout(simulateTargetFound, 600);
-        return;
-      }
       showCameraGuidance(
         'HTTPS Required',
         'Camera access requires a secure connection.',
@@ -689,9 +603,11 @@
       const arSystem = arScene.systems && arScene.systems['mindar-image-system'];
       if (arSystem) {
         try {
-          arSystem.start();
+          if (!isARRunning) {
+            arSystem.start();
+            isARRunning = true;
+          }
           hideCameraGuidance();
-          isARRunning = true;
           isARStarting = false;
         } catch (err) {
           console.error("MindAR start error:", err);
@@ -702,9 +618,11 @@
           const sys = arScene.systems && arScene.systems['mindar-image-system'];
           if (sys) {
             try {
-              sys.start();
+              if (!isARRunning) {
+                sys.start();
+                isARRunning = true;
+              }
               hideCameraGuidance();
-              isARRunning = true;
               isARStarting = false;
             } catch (err) {
               console.error("MindAR start error:", err);
@@ -726,13 +644,6 @@
     isARStarting = false;
     isARRunning = false;
     console.error("WebAR camera error:", err);
-
-    if (isBypassMode) {
-      console.log("[Bypass Mode :5000] Camera error on port 5000 - automatically falling back to simulated models.");
-      hideCameraGuidance();
-      setTimeout(simulateTargetFound, 600);
-      return;
-    }
 
     let title = 'Camera Access Needed';
     let desc = 'Camera permission is needed to scan the SJ card.';
@@ -765,9 +676,7 @@
     startARSession();
   };
 
-  // ==========================================================================
-  // 4. RETICLE & HUD UPDATER
-  // ==========================================================================
+  // Reticle & HUD Updater
   function updateReticleVisibility() {
     const reticle = document.getElementById('scanning-reticle');
     const labelText = document.getElementById('scanning-label-text');
@@ -792,9 +701,7 @@
     }
   }
 
-  // ==========================================================================
-  // 4B. 3D CONTROL MODE CONTROLLER (GYRO vs TOUCH)
-  // ==========================================================================
+  // 3D Control Mode Controller
   window.handleToggleControlMode = function () {
     active3DControlMode = (active3DControlMode === CONTROL_MODES.GYRO) ? CONTROL_MODES.TOUCH : CONTROL_MODES.GYRO;
     updateControlModeUI(true);
@@ -844,329 +751,889 @@
     }
   }
 
-  // ==========================================================================
-  // 4C. RING VIRTUAL TRY-ON ENGINE (MEDIAPIPE HANDS & OVERLAY)
-  // ==========================================================================
-  const tryOnState = {
-    targetFinger: 'INDEX',
-    diamondScaleRatio: 0.48,
-    detConf: 0.7,
-    trackConf: 0.7,
-    isInitialized: false,
-    isRunning: false
+  // 4C. ADVANCED VIRTUAL RING TRY-ON ENGINE (MEDIAPIPE TASKS VISION & THREE.JS)
+  const THREE = window.THREE || (typeof AFRAME !== "undefined" ? AFRAME.THREE : window.THREE);
+
+  const CONFIG = {
+    MODEL_URL: "./assets/glb/ringwithdaimond.glb",
+    RING_SCALE: 2.0,
+    PLACEMENT_FACTOR: 0.50,
+    DEPTH_OFFSET: 0.0,
+    LERP_SPEED: 0.40,
+    ROTATION_SPEED: 0.30,
+    MIN_DISTANCE_CM: 20,
+    MAX_DISTANCE_CM: 40,
+    MIN_DISTANCE_EXIT_CM: 19,
+    MAX_DISTANCE_EXIT_CM: 41,
+    FINGER_SCALES: { index: 1.0, middle: 1.0, ring: 1.0, pinky: 1.0 }
   };
 
-  let tryOnCameraHelper = null;
-  let tryOnHandsEngine = null;
-
-  const diamondImg = new Image();
-  let diamondImgLoaded = false;
-  diamondImg.src = './assets/daimond.png';
-  diamondImg.onload = () => {
-    diamondImgLoaded = true;
+  const FINGER_LANDMARKS = {
+    index: { mcp: 5, pip: 6, dip: 7, tip: 8 },
+    middle: { mcp: 9, pip: 10, dip: 11, tip: 12 },
+    ring: { mcp: 13, pip: 14, dip: 15, tip: 16 },
+    pinky: { mcp: 17, pip: 18, dip: 19, tip: 20 }
   };
 
-  const smoothedStates = {
-    'Left': { x: null, y: null, angle: null, size: null, visible: false },
-    'Right': { x: null, y: null, angle: null, size: null, visible: false }
+  const REQUIRED_FINGERS = ["index", "middle", "ring", "pinky"];
+  const FINGER_CHAINS = {
+    thumb: [1, 2, 3, 4],
+    index: [5, 6, 7, 8],
+    middle: [9, 10, 11, 12],
+    ring: [13, 14, 15, 16],
+    pinky: [17, 18, 19, 20]
   };
 
-  function setupTryOnUIEvents() {
-    const btnFingerTrigger = document.getElementById('btn_finger_trigger');
-    const horizontalFingerBar = document.getElementById('horizontal_finger_bar');
-    const triggerText = document.getElementById('trigger_text');
-    const fingerOptionBtns = document.querySelectorAll('.finger-option-btn');
+  const HandView = { UNKNOWN: "UNKNOWN", PALM: "PALM", BACK: "BACK" };
 
-    if (btnFingerTrigger && horizontalFingerBar) {
-      btnFingerTrigger.onclick = (e) => {
-        e.stopPropagation();
-        horizontalFingerBar.classList.toggle('open');
-        btnFingerTrigger.classList.toggle('active-open');
-      };
+  let selectedFinger = "ring";
+  let activeHandSide = null;
+  let currentHandView = HandView.UNKNOWN;
+  let smoothedLandmarks = {};
+  let smoothedDotProduct = 0.0;
+  let handLandmarker = null;
+  let isInitializingLandmarker = false;
+  let lastVideoTime = -1;
+  let tryOnAnimFrameId = null;
+  let tryOnWebcamStream = null;
 
-      document.addEventListener('click', (e) => {
-        if (!e.target.closest('.expandable-finger-wrapper')) {
-          if (horizontalFingerBar) horizontalFingerBar.classList.remove('open');
-          if (btnFingerTrigger) btnFingerTrigger.classList.remove('active-open');
-        }
-      });
+  let renderer, scene, camera;
+  let ringModel = null;
+  let ringModelLoaded = false;
+  let handMeshes = [];
+
+  const targetRingPos = new THREE.Vector3();
+  const targetRingQuat = new THREE.Quaternion();
+  const targetRingScale = new THREE.Vector3(1, 1, 1);
+  const prevRingQuaternion = new THREE.Quaternion();
+  let targetRingVisible = false;
+
+  const ringClippingPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+
+  const _v1 = new THREE.Vector3();
+  const _v2 = new THREE.Vector3();
+  const _v3 = new THREE.Vector3();
+  const _q1 = new THREE.Quaternion();
+  const _m1 = new THREE.Matrix4();
+
+  const transferAnim = { active: false, fromFinger: null, toFinger: null, startTime: 0, duration: 520 };
+  const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+  let isFingerMenuOpen = false;
+  let currentCameraFacing = 'environment';
+
+  window.toggleFingerMenu = function (e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    isFingerMenuOpen = !isFingerMenuOpen;
+    updateFingerMenuState();
+  };
+
+  window.closeFingerMenu = function () {
+    isFingerMenuOpen = false;
+    updateFingerMenuState();
+  };
+
+  function updateFingerMenuState() {
+    const menu = document.getElementById("finger-popover-menu");
+    const chevron = document.getElementById("finger-menu-chevron");
+    if (menu) {
+      menu.classList.toggle("hidden", !isFingerMenuOpen);
+    }
+    if (chevron) {
+      chevron.style.transform = isFingerMenuOpen ? "rotate(180deg)" : "rotate(0deg)";
+    }
+  }
+
+  window.onSelectFinger = function (fingerKey, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!FINGER_LANDMARKS[fingerKey]) {
+      closeFingerMenu();
+      return;
     }
 
-    fingerOptionBtns.forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const selectedFinger = btn.dataset.finger;
-        tryOnState.targetFinger = selectedFinger;
+    const prevFinger = selectedFinger;
+    selectedFinger = fingerKey;
 
-        if (triggerText) triggerText.textContent = selectedFinger;
+    document.querySelectorAll(".finger-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.finger === fingerKey);
+    });
 
-        fingerOptionBtns.forEach(b => {
-          if (b.dataset.finger === selectedFinger) {
-            b.classList.add('active');
-          } else {
-            b.classList.remove('active');
+    if (prevFinger !== fingerKey) {
+      transferAnim.fromFinger = prevFinger;
+      transferAnim.toFinger = fingerKey;
+      transferAnim.startTime = performance.now();
+      transferAnim.active = true;
+    }
+
+    const label = document.getElementById("selected-finger-text");
+    if (label) {
+      label.textContent = `Finger: ${fingerKey.toUpperCase()}`;
+    }
+
+    closeFingerMenu();
+  };
+
+  window.handleToggleCameraFacing = function () {
+    currentCameraFacing = (currentCameraFacing === 'environment') ? 'user' : 'environment';
+    const btnText = document.getElementById('camera-facing-label');
+    if (btnText) {
+      btnText.textContent = (currentCameraFacing === 'user') ? 'Front' : 'Rear';
+    }
+    if (currentMode === MODES.TRYON) {
+      startCamera();
+    }
+  };
+
+  window.onSelectCameraQuality = function (deviceId) {
+    if (deviceId && currentMode === MODES.TRYON) {
+      startCamera(deviceId);
+    }
+  };
+
+  function isCameraMirrored() {
+    const video = document.getElementById("webcam");
+    return video ? (video.style.transform || "").includes("scaleX(-1)") : true;
+  }
+
+  function isMobileDevice() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  }
+
+  function setupThree() {
+    const canvas = document.getElementById("three-canvas");
+    if (!canvas || renderer) return;
+
+    scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 2000);
+    camera.position.set(0, 0, 1000);
+
+    renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+    renderer.localClippingEnabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    const ambLight = new THREE.AmbientLight(0xffffff, 1.5);
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 3.0);
+    dirLight1.position.set(150, 300, 400);
+    const dirLight2 = new THREE.DirectionalLight(0x82b2df, 2.2);
+    dirLight2.position.set(-150, -100, 300);
+    scene.add(ambLight, dirLight1, dirLight2);
+
+    window.addEventListener("resize", onWindowResize);
+    onWindowResize();
+  }
+
+  function onWindowResize() {
+    if (!renderer || !camera) return;
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.left = -w / 2;
+    camera.right = w / 2;
+    camera.top = h / 2;
+    camera.bottom = -h / 2;
+    camera.updateProjectionMatrix();
+  }
+
+  function loadRingModel() {
+    if (ringModelLoaded && ringModel) return;
+
+    const canvas = document.getElementById("three-canvas");
+    const THREE_INST = window.THREE || (typeof AFRAME !== "undefined" ? AFRAME.THREE : null);
+    if (!canvas || !THREE_INST) return;
+
+    const GLTFLoaderClass = THREE_INST.GLTFLoader || (typeof THREE !== "undefined" ? THREE.GLTFLoader : null);
+    if (!GLTFLoaderClass) return;
+
+    const loader = new GLTFLoaderClass();
+    const modelPath = (canvas && canvas.dataset.model) || CONFIG.MODEL_URL;
+
+    loader.load(
+      modelPath,
+      (gltf) => {
+        ringModel = gltf.scene;
+        ringModel.traverse((child) => {
+          if (child.isMesh && child.material) {
+            child.renderOrder = 2;
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+              mat.clippingPlanes = [ringClippingPlane];
+              mat.clipShadows = true;
+              mat.needsUpdate = true;
+            });
           }
         });
-
-        if (horizontalFingerBar) horizontalFingerBar.classList.remove('open');
-        if (btnFingerTrigger) btnFingerTrigger.classList.remove('active-open');
-      };
-    });
-  }
-
-  function isHandFullyInFrame(landmarks) {
-    if (!landmarks || landmarks.length < 21) return false;
-
-    let mcpIdx = 5;
-    let pipIdx = 6;
-    if (tryOnState.targetFinger === 'MIDDLE') { mcpIdx = 9; pipIdx = 10; }
-    else if (tryOnState.targetFinger === 'RING') { mcpIdx = 13; pipIdx = 14; }
-    else if (tryOnState.targetFinger === 'PINKY') { mcpIdx = 17; pipIdx = 18; }
-
-    const pMcp = landmarks[mcpIdx];
-    const pPip = landmarks[pipIdx];
-
-    if (!pMcp || !pPip || typeof pMcp.x !== 'number' || typeof pPip.x !== 'number') return false;
-
-    const minBound = 0.005;
-    const maxBound = 0.995;
-
-    if (pMcp.x < minBound || pMcp.x > maxBound || pMcp.y < minBound || pMcp.y > maxBound) return false;
-    if (pPip.x < minBound || pPip.x > maxBound || pPip.y < minBound || pPip.y > maxBound) return false;
-
-    return true;
-  }
-
-  function getHandOrientation(landmarks, handedness) {
-    if (!landmarks || landmarks.length < 21) return { isBackOfHand: true };
-
-    const p0 = landmarks[0];   // Wrist
-    const p5 = landmarks[5];   // Index MCP
-    const p9 = landmarks[9];   // Middle MCP
-    const p17 = landmarks[17]; // Pinky MCP
-
-    const anchor = p0 || p9;
-
-    const v1x = p5.x - anchor.x;
-    const v1y = p5.y - anchor.y;
-    const v2x = p17.x - anchor.x;
-    const v2y = p17.y - anchor.y;
-
-    const crossZ = (v1x * v2y) - (v1y * v2x);
-    const isRight = (handedness === 'Right');
-
-    const isBackOfHand = isRight ? (crossZ < 0) : (crossZ > 0);
-    return { isBackOfHand };
-  }
-
-  function drawDiamondOnHandTop(canvasCtx, landmarks, handedness, width, height) {
-    const handKey = (handedness === 'Left' || handedness === 'Right') ? handedness : 'Right';
-    const smoothedState = smoothedStates[handKey];
-
-    if (!landmarks || landmarks.length < 21) {
-      smoothedState.visible = false;
-      return;
-    }
-
-    if (!isHandFullyInFrame(landmarks)) {
-      smoothedState.visible = false;
-      return;
-    }
-
-    const orientation = getHandOrientation(landmarks, handedness);
-    if (!orientation.isBackOfHand) {
-      smoothedState.visible = false;
-      return;
-    }
-
-    if (!diamondImgLoaded) return;
-
-    let mcpIdx = 5;
-    let pipIdx = 6;
-    if (tryOnState.targetFinger === 'MIDDLE') { mcpIdx = 9; pipIdx = 10; }
-    else if (tryOnState.targetFinger === 'RING') { mcpIdx = 13; pipIdx = 14; }
-    else if (tryOnState.targetFinger === 'PINKY') { mcpIdx = 17; pipIdx = 18; }
-
-    const pMcp = landmarks[mcpIdx];
-    const pPip = landmarks[pipIdx];
-
-    const rawX = ((pMcp.x + pPip.x) / 2) * width;
-    const rawY = ((pMcp.y + pPip.y) / 2) * height;
-
-    const dx = (pPip.x - pMcp.x) * width;
-    const dy = (pPip.y - pMcp.y) * height;
-    const rawAngle = Math.atan2(dy, dx) + Math.PI / 2;
-
-    const pIndexMcp = landmarks[5];
-    const pIndexPip = landmarks[6];
-    const indexLength = Math.hypot((pIndexPip.x - pIndexMcp.x) * width, (pIndexPip.y - pIndexMcp.y) * height);
-    const ratio = tryOnState.diamondScaleRatio || 0.48;
-    const rawSize = Math.max(12, Math.min(width * 0.15, indexLength * ratio));
-
-    if (!smoothedState.visible || smoothedState.x === null) {
-      smoothedState.x = rawX;
-      smoothedState.y = rawY;
-      smoothedState.angle = rawAngle;
-      smoothedState.size = rawSize;
-      smoothedState.visible = true;
-    } else {
-      const deltaDist = Math.hypot(rawX - smoothedState.x, rawY - smoothedState.y);
-      if (deltaDist > 1.0) {
-        const aPos = Math.min(0.35, Math.max(0.08, deltaDist * 0.02));
-        smoothedState.x += (rawX - smoothedState.x) * aPos;
-        smoothedState.y += (rawY - smoothedState.y) * aPos;
-      }
-
-      let dAngle = rawAngle - smoothedState.angle;
-      while (dAngle < -Math.PI) dAngle += Math.PI * 2;
-      while (dAngle > Math.PI) dAngle -= Math.PI * 2;
-
-      const aAngle = Math.min(0.5, Math.max(0.18, Math.abs(dAngle) * 0.7));
-      smoothedState.angle += dAngle * aAngle;
-
-      const dSize = rawSize - smoothedState.size;
-      if (Math.abs(dSize) > 0.8) {
-        smoothedState.size += dSize * 0.1;
-      }
-    }
-
-    const { x, y, angle, size } = smoothedState;
-
-    canvasCtx.save();
-    canvasCtx.translate(x, y);
-    canvasCtx.rotate(angle);
-
-    canvasCtx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-    canvasCtx.shadowBlur = 10;
-    canvasCtx.shadowOffsetX = 1;
-    canvasCtx.shadowOffsetY = 4;
-
-    canvasCtx.drawImage(
-      diamondImg,
-      -size / 2,
-      -size / 2,
-      size,
-      size
+        ringModel.visible = false;
+        scene.add(ringModel);
+        ringModelLoaded = true;
+        console.log("[Three.js] Virtual Try-On Ring Model Loaded successfully.");
+      },
+      undefined,
+      (err) => console.error("Error loading ring model:", err)
     );
-
-    canvasCtx.restore();
   }
 
-  function onTryOnResults(results) {
-    const loader = document.getElementById('tryon-camera-loader');
-    if (loader && loader.style.display !== 'none') {
-      loader.style.display = 'none';
-    }
-
-    const webcamEl = document.getElementById('tryon-webcam');
-    const canvasEl = document.getElementById('tryon-canvas');
-    if (!canvasEl || !webcamEl) return;
-
-    const canvasCtx = canvasEl.getContext('2d');
-    if (webcamEl.videoWidth && webcamEl.videoHeight) {
-      canvasEl.width = webcamEl.videoWidth;
-      canvasEl.height = webcamEl.videoHeight;
-    }
-
-    const width = canvasEl.width;
-    const height = canvasEl.height;
-
-    canvasCtx.clearRect(0, 0, width, height);
-
-    if (results.multiHandLandmarks && results.multiHandedness && results.multiHandLandmarks.length > 0) {
-      const landmarks = results.multiHandLandmarks[0];
-      const handedness = results.multiHandedness[0].label;
-
-      drawDiamondOnHandTop(canvasCtx, landmarks, handedness, width, height);
-    } else {
-      smoothedStates['Left'].visible = false;
-      smoothedStates['Right'].visible = false;
-    }
+  function createHandMesh() {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: true,
+      side: THREE.DoubleSide,
+      depthTest: true
+    });
+    const surface = new THREE.Mesh(new THREE.BufferGeometry(), mat);
+    surface.renderOrder = 0;
+    group.add(surface);
+    return { group, surface };
   }
 
-  function startTryOnSession() {
-    const webcamEl = document.getElementById('tryon-webcam');
-    const container = document.getElementById('tryon-container');
-    const loader = document.getElementById('tryon-camera-loader');
+  function updateHandMesh(hand, landmarks) {
+    const points = landmarks.map(landmarkToScreen);
+    const handScale = (Math.hypot(points[5].x - points[17].x, points[5].y - points[17].y) + Math.hypot(points[0].x - points[9].x, points[0].y - points[9].y)) * 0.5;
+    const positions = [], indices = [];
+    const addV = p => { const id = positions.length / 3; positions.push(p.x, p.y, p.z); return id; };
+    const addQ = (v0, v1, v2, v3) => indices.push(v0, v1, v2, v0, v2, v3);
 
-    if (!webcamEl || !container) return;
+    const wrist = points[0], iMcp = points[5], pMcp = points[17];
+    const contours = [
+      [wrist, { x: (wrist.x + iMcp.x) * 0.5, y: (wrist.y + iMcp.y) * 0.5, z: (wrist.z + iMcp.z) * 0.5 }, iMcp],
+      [wrist, { x: (wrist.x + points[9].x) * 0.5, y: (wrist.y + points[9].y) * 0.5, z: (wrist.z + points[9].z) * 0.5 }, points[9]],
+      [wrist, { x: (wrist.x + points[13].x) * 0.5, y: (wrist.y + points[13].y) * 0.5, z: (wrist.z + points[13].z) * 0.5 }, points[13]],
+      [wrist, { x: (wrist.x + pMcp.x) * 0.5, y: (wrist.y + pMcp.y) * 0.5, z: (wrist.z + pMcp.z) * 0.5 }, pMcp]
+    ];
 
-    container.classList.remove('hidden');
-    container.style.display = 'block';
-    if (loader) loader.style.display = 'flex';
+    const grid = [];
+    for (let r = 0; r < 4; r++) {
+      const row = [], t = r / 3, omt = 1 - t;
+      for (let c = 0; c < contours.length; c++) {
+        const [p0, p1, p2] = contours[c];
+        row.push(addV({
+          x: omt * omt * p0.x + 2 * omt * t * p1.x + t * t * p2.x,
+          y: omt * omt * p0.y + 2 * omt * t * p1.y + t * t * p2.y,
+          z: omt * omt * p0.z + 2 * omt * t * p1.z + t * t * p2.z
+        }));
+      }
+      grid.push(row);
+    }
 
-    if (!tryOnState.isInitialized) {
-      setupTryOnUIEvents();
-      if (typeof Hands !== 'undefined') {
-        tryOnHandsEngine = new Hands({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-
-        tryOnHandsEngine.setOptions({
-          maxNumHands: 1,
-          modelComplexity: 1,
-          minDetectionConfidence: tryOnState.detConf,
-          minTrackingConfidence: tryOnState.trackConf
-        });
-
-        tryOnHandsEngine.onResults(onTryOnResults);
-        tryOnState.isInitialized = true;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < contours.length - 1; c++) {
+        addQ(grid[r][c], grid[r + 1][c], grid[r + 1][c + 1], grid[r][c + 1]);
       }
     }
 
-    if (typeof Camera !== 'undefined' && tryOnHandsEngine) {
-      if (tryOnCameraHelper) {
-        tryOnCameraHelper.start().catch(console.warn);
-        tryOnState.isRunning = true;
+    for (const chain of Object.values(FINGER_CHAINS)) {
+      const fingerRings = [];
+      for (let i = 0; i < chain.length; i++) {
+        const pt = points[chain[i]];
+        const nextPt = points[chain[Math.min(chain.length - 1, i + 1)]];
+        const prevPt = points[chain[Math.max(0, i - 1)]];
+        const dx = nextPt.x - prevPt.x, dy = nextPt.y - prevPt.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len, ny = dx / len;
+        const radius = Math.max(3.5, handScale * ((i === 0) ? 0.055 : (i === 3 ? 0.038 : 0.048)));
+
+        const ring = [];
+        for (let s = 0; s < 8; s++) {
+          const ang = (s / 8) * Math.PI * 2;
+          ring.push(addV({
+            x: pt.x + (nx * Math.cos(ang)) * radius,
+            y: pt.y + (ny * Math.cos(ang)) * radius,
+            z: pt.z + Math.sin(ang) * radius * 0.95
+          }));
+        }
+        fingerRings.push(ring);
+      }
+
+      for (let r = 0; r < fingerRings.length - 1; r++) {
+        const a = fingerRings[r], b = fingerRings[r + 1];
+        for (let s = 0; s < 8; s++) {
+          addQ(a[s], b[s], b[(s + 1) % 8], a[(s + 1) % 8]);
+        }
+      }
+    }
+
+    const geom = hand.surface.geometry;
+    geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geom.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+    geom.computeVertexNormals();
+  }
+
+  function landmarkToScreen(lm) {
+    const video = document.getElementById("webcam");
+    const vpW = window.innerWidth, vpH = window.innerHeight;
+    const srcW = (video && video.videoWidth) || vpW, srcH = (video && video.videoHeight) || vpH;
+    const scale = Math.max(vpW / srcW, vpH / srcH);
+    const offX = (vpW - srcW * scale) * 0.5, offY = (vpH - srcH * scale) * 0.5;
+    return {
+      x: (lm.x * srcW * scale + offX) - vpW / 2,
+      y: vpH / 2 - (lm.y * srcH * scale + offY),
+      z: THREE.MathUtils.clamp(-lm.z * 180, -60, 60)
+    };
+  }
+
+  function smoothLandmarks(handIdx, raw) {
+    if (!smoothedLandmarks[handIdx]) {
+      smoothedLandmarks[handIdx] = raw.map(lm => ({ ...lm }));
+      return raw;
+    }
+    const prev = smoothedLandmarks[handIdx];
+    const smoothed = [];
+    for (let i = 0; i < raw.length; i++) {
+      const d = Math.hypot(raw[i].x - prev[i].x, raw[i].y - prev[i].y, raw[i].z - prev[i].z);
+      const alpha = d < 0.002 ? 0.08 : (d > 0.008 ? 0.80 : 0.45);
+      smoothed.push({
+        x: prev[i].x + (raw[i].x - prev[i].x) * alpha,
+        y: prev[i].y + (raw[i].y - prev[i].y) * alpha,
+        z: prev[i].z + (raw[i].z - prev[i].z) * alpha
+      });
+    }
+    smoothedLandmarks[handIdx] = smoothed;
+    return smoothed;
+  }
+
+  function classifyHandView(landmarks, worldLandmarks, handSide) {
+    let v1, v2;
+    if (worldLandmarks && worldLandmarks.length >= 21) {
+      const w = worldLandmarks[0], iMcp = worldLandmarks[5], pMcp = worldLandmarks[17];
+      v1 = _v1.set(iMcp.x - w.x, iMcp.y - w.y, iMcp.z - w.z);
+      v2 = _v2.set(pMcp.x - w.x, pMcp.y - w.y, pMcp.z - w.z);
+    } else {
+      const w = landmarks[0], iMcp = landmarks[5], pMcp = landmarks[17];
+      v1 = _v1.set(iMcp.x - w.x, -(iMcp.y - w.y), -(iMcp.z - w.z));
+      v2 = _v2.set(pMcp.x - w.x, -(pMcp.y - w.y), -(pMcp.z - w.z));
+    }
+
+    const norm = _v3;
+    if (handSide === "RIGHT") norm.crossVectors(v2, v1).normalize();
+    else norm.crossVectors(v1, v2).normalize();
+
+    smoothedDotProduct += (norm.z - smoothedDotProduct) * 0.20;
+    if (smoothedDotProduct > 0.25) currentHandView = HandView.PALM;
+    else if (smoothedDotProduct < -0.25) currentHandView = HandView.BACK;
+    else currentHandView = HandView.UNKNOWN;
+
+    const badge = document.getElementById("hand-view-badge");
+    if (badge) {
+      if (currentHandView === HandView.PALM) {
+        badge.textContent = "PALM VIEW";
+        badge.className = "hand-view-badge palm";
+      } else if (currentHandView === HandView.BACK) {
+        badge.textContent = "BACK VIEW";
+        badge.className = "hand-view-badge back";
+      } else {
+        badge.textContent = "HAND TRACKED";
+        badge.className = "hand-view-badge";
+      }
+    }
+
+    return currentHandView;
+  }
+
+  function getSegment2DClosestPoint(px, py, p0, p1) {
+    const dx = p1.x - p0.x, dy = p1.y - p0.y;
+    const l2 = dx * dx + dy * dy;
+    if (l2 === 0) return { dist: Math.hypot(px - p0.x, py - p0.y), z: p0.z };
+    let t = Math.max(0, Math.min(1, ((px - p0.x) * dx + (py - p0.y) * dy) / l2));
+    return {
+      dist: Math.hypot(px - (p0.x + t * dx), py - (p0.y + t * dy)),
+      z: p0.z + t * (p1.z - p0.z)
+    };
+  }
+
+  function evaluateRingOcclusion(landmarks, targetFingerKey = selectedFinger) {
+    const points = landmarks.map(landmarkToScreen);
+    const targetMap = FINGER_LANDMARKS[targetFingerKey] || FINGER_LANDMARKS.ring;
+    const mcp = points[targetMap.mcp], pip = points[targetMap.pip];
+
+    const pCenter = {
+      x: mcp.x + (pip.x - mcp.x) * CONFIG.PLACEMENT_FACTOR,
+      y: mcp.y + (pip.y - mcp.y) * CONFIG.PLACEMENT_FACTOR,
+      z: mcp.z + (pip.z - mcp.z) * CONFIG.PLACEMENT_FACTOR
+    };
+
+    const phalanxLen = Math.hypot(pip.x - mcp.x, pip.y - mcp.y, pip.z - mcp.z);
+    const ringRadiusThresh = Math.max(12, phalanxLen * 0.32);
+    const checkChains = Object.keys(FINGER_CHAINS).filter(k => k !== targetFingerKey);
+
+    for (const key of checkChains) {
+      const chain = FINGER_CHAINS[key];
+      for (let s = 0; s < chain.length - 1; s++) {
+        const p0 = points[chain[s]], p1 = points[chain[s + 1]];
+        if (!p0 || !p1) continue;
+        const closest = getSegment2DClosestPoint(pCenter.x, pCenter.y, p0, p1);
+        if (closest.dist < ringRadiusThresh && closest.z > pCenter.z + 3.5) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function detectFistPose(rawLandmarks) {
+    if (!rawLandmarks || rawLandmarks.length < 21) return false;
+    const wrist = rawLandmarks[0];
+    let flexed = 0;
+    for (const fKey of REQUIRED_FINGERS) {
+      const chain = FINGER_CHAINS[fKey];
+      const mcp = rawLandmarks[chain[0]], tip = rawLandmarks[chain[3]];
+      if (mcp && tip && (Math.hypot(tip.x - wrist.x, tip.y - wrist.y) < Math.hypot(mcp.x - wrist.x, mcp.y - wrist.y) * 1.05)) {
+        flexed++;
+      }
+    }
+    return flexed >= 3;
+  }
+
+  function isSelectedFingerOpen(landmarks, rawLandmarks, fingerKey) {
+    const map = FINGER_LANDMARKS[fingerKey] || FINGER_LANDMARKS.ring;
+    const mcpLm = rawLandmarks[map.mcp], pipLm = rawLandmarks[map.pip], tipLm = rawLandmarks[map.tip];
+    if (!mcpLm || !pipLm || !tipLm) return false;
+
+    const pts = landmarks.map(landmarkToScreen);
+    const mcp = pts[map.mcp], pip = pts[map.pip], tip = pts[map.tip], wrist = pts[0];
+    const mcpDist = Math.hypot(mcp.x - wrist.x, mcp.y - wrist.y);
+    const tipDist = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+    const isExtended = tipDist > mcpDist * 1.15;
+
+    const vProx = _v1.set(pip.x - mcp.x, pip.y - mcp.y, pip.z - mcp.z).normalize();
+    const vDist = _v2.set(tip.x - pip.x, tip.y - pip.y, tip.z - pip.z).normalize();
+    return isExtended && (vProx.dot(vDist) > -0.2);
+  }
+
+  function calculateFingerFrame(landmarks, fingerKey, handSide) {
+    const points = landmarks.map(landmarkToScreen);
+    const map = FINGER_LANDMARKS[fingerKey] || FINGER_LANDMARKS.ring;
+    const mcp = points[map.mcp], pip = points[map.pip], tip = points[map.tip];
+    const indexMcp = points[5], pinkyMcp = points[17];
+
+    const posX = mcp.x + (pip.x - mcp.x) * CONFIG.PLACEMENT_FACTOR;
+    const posY = mcp.y + (pip.y - mcp.y) * CONFIG.PLACEMENT_FACTOR;
+    const posZ = mcp.z + (pip.z - mcp.z) * CONFIG.PLACEMENT_FACTOR + CONFIG.DEPTH_OFFSET;
+
+    const dip = points[map.dip];
+    const dX = tip.x - dip.x, dY = tip.y - dip.y, dZ = tip.z - dip.z;
+    const dLen = Math.hypot(dX, dY, dZ) || 20;
+    const clearance = Math.max(42, dLen * 1.95);
+    const tipX = tip.x + (dX / dLen) * clearance;
+    const tipY = tip.y + (dY / dLen) * clearance;
+    const tipZ = tip.z + (dZ / dLen) * clearance + 12;
+
+    const fingerVec = _v1.set(pip.x - mcp.x, pip.y - mcp.y, pip.z - mcp.z).normalize();
+    const knuckleSpan = _v2.set(pinkyMcp.x - indexMcp.x, pinkyMcp.y - indexMcp.y, pinkyMcp.z - indexMcp.z).normalize();
+
+    const dorsalNorm = _v3;
+    if (handSide === "RIGHT") dorsalNorm.crossVectors(fingerVec, knuckleSpan).normalize();
+    else dorsalNorm.crossVectors(knuckleSpan, fingerVec).normalize();
+
+    const sideVec = new THREE.Vector3().crossVectors(fingerVec, dorsalNorm).normalize();
+    dorsalNorm.crossVectors(sideVec, fingerVec).normalize();
+
+    const quat = new THREE.Quaternion();
+    if (currentHandView === HandView.UNKNOWN && prevRingQuaternion.lengthSq() > 0) {
+      quat.copy(prevRingQuaternion);
+    } else {
+      _m1.makeBasis(sideVec, fingerVec, dorsalNorm);
+      quat.setFromRotationMatrix(_m1);
+      _q1.setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+      quat.multiply(_q1);
+
+      if (!isCameraMirrored()) {
+        _q1.setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
+        quat.multiply(_q1);
+      }
+      if (prevRingQuaternion.dot(quat) < 0) quat.set(-quat.x, -quat.y, -quat.z, -quat.w);
+    }
+
+    const handScale = (Math.hypot(points[5].x - points[17].x, points[5].y - points[17].y) + Math.hypot(points[0].x - points[9].x, points[0].y - points[9].y)) * 0.5;
+    const fingerRadius = THREE.MathUtils.clamp(handScale * 0.052, 4.5, 14.0);
+    const fingerMult = CONFIG.FINGER_SCALES[fingerKey] || 1.0;
+    const targetScaleVal = fingerRadius * 1.05 * CONFIG.RING_SCALE * fingerMult;
+
+    return {
+      position: new THREE.Vector3(posX, posY, posZ),
+      tipPosition: new THREE.Vector3(tipX, tipY, tipZ),
+      quaternion: quat,
+      scale: new THREE.Vector3(targetScaleVal, targetScaleVal, targetScaleVal),
+      phalanxLength: Math.hypot(pip.x - mcp.x, pip.y - mcp.y, pip.z - mcp.z)
+    };
+  }
+
+  let smoothedHandDistanceCm = 28.0;
+  let isDistanceStateValid = true;
+
+  function calculateHandDistanceCm(landmarks) {
+    const points = landmarks.map(landmarkToScreen);
+    const palmHeightPx = Math.hypot(points[9].x - points[0].x, points[9].y - points[0].y);
+    const palmWidthPx = Math.hypot(points[17].x - points[5].x, points[17].y - points[5].y);
+    const handPx = (palmHeightPx + palmWidthPx) * 0.5 || 100;
+
+    const rawDist = THREE.MathUtils.clamp(4800 / handPx, 10, 80);
+    smoothedHandDistanceCm = smoothedHandDistanceCm * 0.85 + rawDist * 0.15;
+
+    if (isDistanceStateValid) {
+      if (smoothedHandDistanceCm < CONFIG.MIN_DISTANCE_EXIT_CM || smoothedHandDistanceCm > CONFIG.MAX_DISTANCE_EXIT_CM) {
+        isDistanceStateValid = false;
+      }
+    } else {
+      if (smoothedHandDistanceCm >= CONFIG.MIN_DISTANCE_CM && smoothedHandDistanceCm <= CONFIG.MAX_DISTANCE_CM) {
+        isDistanceStateValid = true;
+      }
+    }
+
+    return {
+      distanceCm: parseFloat(smoothedHandDistanceCm.toFixed(1)),
+      isValid: isDistanceStateValid,
+      isTooClose: smoothedHandDistanceCm < (isDistanceStateValid ? CONFIG.MIN_DISTANCE_EXIT_CM : CONFIG.MIN_DISTANCE_CM),
+      isTooFar: smoothedHandDistanceCm > (isDistanceStateValid ? CONFIG.MAX_DISTANCE_EXIT_CM : CONFIG.MAX_DISTANCE_CM)
+    };
+  }
+
+  function processTrackingResult(result) {
+    const handGuideOverlay = document.getElementById("hand-guide-overlay");
+    const handGuideText = document.getElementById("hand-guide-text");
+    const handGuideSubtext = document.getElementById("hand-guide-subtext");
+
+    if (!handMeshes.length) {
+      const mesh = createHandMesh();
+      scene.add(mesh.group);
+      handMeshes.push(mesh);
+    }
+
+    const tryonStatusText = document.getElementById("tryon-status-text");
+
+    const detectedHands = result?.landmarks || [];
+    if (!detectedHands.length) {
+      targetRingVisible = false;
+      if (handMeshes[0]) handMeshes[0].group.visible = false;
+      if (handGuideOverlay) handGuideOverlay.classList.add("active");
+      if (handGuideText) handGuideText.textContent = "PLACE YOUR HAND IN FRAME";
+      if (handGuideSubtext) handGuideSubtext.textContent = "Keep fingers visible to try on the ring";
+      if (tryonStatusText) tryonStatusText.textContent = "Searching Hand";
+      return;
+    }
+
+    if (tryonStatusText) tryonStatusText.textContent = "Hand Tracked";
+
+    const rawLandmarks = detectedHands[0];
+    const worldLandmarks = result?.worldLandmarks?.[0] || null;
+    const info = result?.handednesses?.[0]?.[0];
+    let side = info ? info.categoryName.toUpperCase() : "RIGHT";
+    if (isCameraMirrored()) side = (side === "LEFT" ? "RIGHT" : "LEFT");
+    activeHandSide = side;
+
+    const landmarks = smoothLandmarks(0, rawLandmarks);
+    classifyHandView(landmarks, worldLandmarks, side);
+
+    const distInfo = calculateHandDistanceCm(landmarks);
+    if (!distInfo.isValid) {
+      targetRingVisible = false;
+      if (handGuideOverlay) handGuideOverlay.classList.add("active");
+      if (distInfo.isTooClose) {
+        if (handGuideText) handGuideText.textContent = "HAND TOO CLOSE";
+        if (handGuideSubtext) handGuideSubtext.textContent = "Move your hand farther from the camera (20–40 cm)";
+      } else {
+        if (handGuideText) handGuideText.textContent = "HAND TOO FAR";
+        if (handGuideSubtext) handGuideSubtext.textContent = "Move your hand closer to the camera (20–40 cm)";
+      }
+      if (handMeshes[0]) {
+        handMeshes[0].group.visible = true;
+        updateHandMesh(handMeshes[0], landmarks);
+      }
+      return;
+    }
+
+    const isFist = detectFistPose(rawLandmarks);
+    const selectedOpen = isSelectedFingerOpen(landmarks, rawLandmarks, selectedFinger);
+    const isOccluded = evaluateRingOcclusion(landmarks, selectedFinger);
+
+    if (isOccluded) {
+      targetRingVisible = false;
+      if (handMeshes[0]) {
+        handMeshes[0].group.visible = true;
+        updateHandMesh(handMeshes[0], landmarks);
+      }
+      return;
+    }
+
+    if (isFist) {
+      if (!selectedOpen) {
+        targetRingVisible = false;
+        if (handMeshes[0]) {
+          handMeshes[0].group.visible = true;
+          updateHandMesh(handMeshes[0], landmarks);
+        }
         return;
       }
+    } else {
+      let validCount = 0;
+      for (const fKey of REQUIRED_FINGERS) {
+        let fValid = true;
+        for (const idx of FINGER_CHAINS[fKey]) {
+          const lm = rawLandmarks[idx];
+          if (!lm || lm.x < 0.0 || lm.x > 1.0 || lm.y < 0.0 || lm.y > 1.0) { fValid = false; break; }
+        }
+        if (fValid) validCount++;
+      }
 
-      tryOnCameraHelper = new Camera(webcamEl, {
-        onFrame: async () => {
-          if (tryOnHandsEngine && currentMode === MODES.TRYON) {
-            await tryOnHandsEngine.send({ image: webcamEl });
-          }
-        },
-        width: 1280,
-        height: 720,
-        facingMode: 'environment'
+      if (validCount < 4) {
+        targetRingVisible = false;
+        if (handMeshes[0]) handMeshes[0].group.visible = false;
+        if (handGuideOverlay) handGuideOverlay.classList.add("active");
+        if (handGuideText) handGuideText.textContent = "KEEP ALL FOUR FINGERS VISIBLE";
+        if (handGuideSubtext) handGuideSubtext.textContent = "Keep fingers visible to try on the ring";
+        return;
+      }
+    }
+
+    if (handGuideOverlay) handGuideOverlay.classList.remove("active");
+    if (handMeshes[0]) {
+      handMeshes[0].group.visible = true;
+      updateHandMesh(handMeshes[0], landmarks);
+    }
+
+    const now = performance.now();
+    if (transferAnim.active) {
+      const elapsed = now - transferAnim.startTime;
+      const p = THREE.MathUtils.clamp(elapsed / transferAnim.duration, 0, 1);
+      const src = calculateFingerFrame(landmarks, transferAnim.fromFinger, side);
+      const dst = calculateFingerFrame(landmarks, transferAnim.toFinger, side);
+
+      if (p < 0.32) {
+        const e = easeOutCubic(p / 0.32);
+        targetRingPos.lerpVectors(src.position, src.tipPosition, e);
+        targetRingQuat.copy(src.quaternion);
+        targetRingScale.copy(src.scale);
+      } else if (p < 0.68) {
+        const tB = (p - 0.32) / 0.36;
+        const e = easeInOutCubic(tB);
+        targetRingPos.lerpVectors(src.tipPosition, dst.tipPosition, e);
+        targetRingPos.z += Math.sin(tB * Math.PI) * (dst.phalanxLength * 0.75);
+        targetRingQuat.slerpQuaternions(src.quaternion, dst.quaternion, e);
+        targetRingScale.lerpVectors(src.scale, dst.scale, e);
+      } else {
+        const e = easeOutCubic((p - 0.68) / 0.32);
+        targetRingPos.lerpVectors(dst.tipPosition, dst.position, e);
+        targetRingQuat.copy(dst.quaternion);
+        targetRingScale.copy(dst.scale);
+      }
+      targetRingVisible = true;
+      if (p >= 1.0) transferAnim.active = false;
+    } else {
+      const frame = calculateFingerFrame(landmarks, selectedFinger, side);
+      targetRingPos.copy(frame.position);
+      targetRingQuat.copy(frame.quaternion);
+      targetRingScale.copy(frame.scale);
+      targetRingVisible = true;
+    }
+  }
+
+  function renderLoop(timestamp) {
+    if (currentMode !== MODES.TRYON) return;
+    tryOnAnimFrameId = requestAnimationFrame(renderLoop);
+
+    if (ringModel && ringModelLoaded) {
+      if (targetRingVisible) {
+        ringModel.position.lerp(targetRingPos, CONFIG.LERP_SPEED);
+        ringModel.quaternion.slerp(targetRingQuat, CONFIG.ROTATION_SPEED);
+        ringModel.scale.lerp(targetRingScale, CONFIG.LERP_SPEED);
+        ringModel.visible = true;
+        ringClippingPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1), ringModel.position);
+        prevRingQuaternion.copy(ringModel.quaternion);
+      } else {
+        ringModel.visible = false;
+      }
+    }
+
+    if (renderer && scene && camera) {
+      renderer.render(scene, camera);
+    }
+
+    const video = document.getElementById("webcam");
+    if (handLandmarker && video && video.readyState >= 2 && video.videoWidth > 0 && video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      try {
+        const result = handLandmarker.detectForVideo(video, timestamp);
+        processTrackingResult(result);
+      } catch (e) {
+        console.warn("Detection error:", e);
+      }
+    }
+  }
+
+  async function populateCameraSources(activeDeviceId = null) {
+    const select = document.getElementById("camera-quality-select");
+    if (!select || !navigator.mediaDevices?.enumerateDevices) return;
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevs = devices.filter(d => d.kind === "videoinput");
+      select.innerHTML = "";
+
+      const autoOpt = document.createElement("option");
+      autoOpt.value = "auto";
+      autoOpt.text = "★ AUTO CAMERA";
+      if (!activeDeviceId || activeDeviceId === "auto") autoOpt.selected = true;
+      select.appendChild(autoOpt);
+
+      videoDevs.forEach((dev, idx) => {
+        const opt = document.createElement("option");
+        opt.value = dev.deviceId;
+        opt.text = dev.label || `Camera ${idx + 1}`;
+        if (activeDeviceId && dev.deviceId === activeDeviceId) opt.selected = true;
+        select.appendChild(opt);
       });
+    } catch (e) {
+      console.warn("Camera enum error:", e);
+    }
+  }
 
-      tryOnCameraHelper.start().catch(err => {
-        console.warn("Front/default camera fallback for Try On:", err);
-        const fallbackCam = new Camera(webcamEl, {
-          onFrame: async () => {
-            if (tryOnHandsEngine && currentMode === MODES.TRYON) {
-              await tryOnHandsEngine.send({ image: webcamEl });
-            }
+  async function startCamera(targetDeviceId = null) {
+    const video = document.getElementById("webcam");
+    const canvas = document.getElementById("three-canvas");
+    if (!video || !canvas || !navigator.mediaDevices?.getUserMedia) return;
+
+    if (tryOnWebcamStream) {
+      tryOnWebcamStream.getTracks().forEach(t => t.stop());
+      tryOnWebcamStream = null;
+    }
+
+    const qualityConstraints = [
+      { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+      { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
+      { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
+    ];
+
+    let stream = null;
+    for (const q of qualityConstraints) {
+      const constraints = { ...q };
+      if (targetDeviceId && targetDeviceId !== "auto") {
+        constraints.deviceId = { exact: targetDeviceId };
+      } else {
+        constraints.facingMode = { ideal: currentCameraFacing };
+      }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: constraints });
+        if (stream) break;
+      } catch (e) {
+        console.warn("Camera retry...", e);
+      }
+    }
+
+    if (!stream) stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+
+    tryOnWebcamStream = stream;
+    const track = stream.getVideoTracks()[0];
+    const settings = track?.getSettings ? track.getSettings() : {};
+    await populateCameraSources(settings.deviceId || targetDeviceId);
+
+    const isFront = (settings.facingMode === "user" || (!settings.facingMode && !isMobileDevice()));
+    const mirrorStyle = isFront ? "scaleX(-1)" : "none";
+    video.style.transform = mirrorStyle;
+    canvas.style.transform = mirrorStyle;
+
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await video.play();
+    onWindowResize();
+  }
+
+  async function initHandLandmarker() {
+    if (handLandmarker || isInitializingLandmarker) return;
+    isInitializingLandmarker = true;
+
+    try {
+      let attempts = 0;
+      while (!window.MediaPipeVision && attempts < 50) {
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+
+      if (window.MediaPipeVision) {
+        const { FilesetResolver, HandLandmarker } = window.MediaPipeVision;
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+        );
+        handLandmarker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+            delegate: "GPU"
           },
-          width: 1280,
-          height: 720
+          runningMode: "VIDEO",
+          numHands: 1,
+          minHandDetectionConfidence: 0.30,
+          minHandPresenceConfidence: 0.30,
+          minTrackingConfidence: 0.30
         });
-        fallbackCam.start();
-        tryOnCameraHelper = fallbackCam;
-      });
-      tryOnState.isRunning = true;
+        console.log("[MediaPipe Vision] HandLandmarker initialized with occlusion & distance tracking.");
+      }
+    } catch (err) {
+      console.error("Initialization error:", err);
+    } finally {
+      isInitializingLandmarker = false;
+    }
+  }
+
+  window.addEventListener("mediapipe-ready", () => {
+    initHandLandmarker();
+  });
+
+  async function startTryOnSession() {
+    const viewport = document.getElementById("viewport");
+    if (viewport) {
+      viewport.classList.remove("hidden");
+      viewport.style.display = "block";
+    }
+
+    try {
+      setupThree();
+      loadRingModel();
+      await startCamera();
+      await initHandLandmarker();
+
+      if (tryOnAnimFrameId) cancelAnimationFrame(tryOnAnimFrameId);
+      tryOnAnimFrameId = requestAnimationFrame(renderLoop);
+    } catch (err) {
+      console.error("Failed to start Try-On session:", err);
+      handleCameraError(err);
     }
   }
 
   function stopTryOnSession() {
-    const container = document.getElementById('tryon-container');
-    if (container) {
-      container.classList.add('hidden');
-      container.style.display = 'none';
+    const viewport = document.getElementById("viewport");
+    if (viewport) {
+      viewport.classList.add("hidden");
+      viewport.style.display = "none";
     }
-    if (tryOnCameraHelper) {
-      tryOnCameraHelper.stop().catch(() => {});
+
+    if (tryOnAnimFrameId) {
+      cancelAnimationFrame(tryOnAnimFrameId);
+      tryOnAnimFrameId = null;
     }
-    tryOnState.isRunning = false;
-    smoothedStates['Left'].visible = false;
-    smoothedStates['Right'].visible = false;
+
+    if (tryOnWebcamStream) {
+      tryOnWebcamStream.getTracks().forEach(t => t.stop());
+      tryOnWebcamStream = null;
+    }
+
+    targetRingVisible = false;
+    if (ringModel) ringModel.visible = false;
+    if (handMeshes[0]) handMeshes[0].group.visible = false;
   }
 
-  // ==========================================================================
-  // 5. MODE SWITCHER & SELECTION CONTROLLER
-  // ==========================================================================
+
+
+
+  // Mode Switcher & Selection Controller
   window.handleOpenModeSelect = function () {
     const modeModal = document.getElementById('mode-selection-modal');
     if (modeModal) {
@@ -1189,10 +1656,7 @@
     const modeLabel = document.getElementById('current-mode-label');
     const gestureHint = document.getElementById('gesture-hint');
 
-    if (devSimulateTimeout) {
-      clearTimeout(devSimulateTimeout);
-      devSimulateTimeout = null;
-    }
+
 
     if (selectedMode === 'AR') {
       currentMode = MODES.AR;
@@ -1230,16 +1694,6 @@
 
       updateReticleVisibility();
       startARSession();
-
-      // On Port 5000 Bypass mode, automatically trigger detection in 600ms
-      if (isBypassMode) {
-        devSimulateTimeout = setTimeout(() => {
-          if (currentMode === MODES.AR) {
-            console.log("[Bypass Mode :5000] Auto-detecting SJ AR Card.");
-            simulateTargetFound();
-          }
-        }, 600);
-      }
 
     } else if (selectedMode === 'THREED') {
       currentMode = MODES.THREED;
@@ -1286,18 +1740,8 @@
       } else {
         // Needs initial 3-second scan
         threedState = THREED_STATE.INITIAL_SCAN;
-        updateStatusPill('searching', 'Point camera at Card');
+        updateStatusPill('searching', 'Scan SJ 3D Card');
         updateReticleVisibility();
-
-        // On Port 5000 Bypass mode, automatically trigger detection in 600ms
-        if (isBypassMode) {
-          devSimulateTimeout = setTimeout(() => {
-            if (currentMode === MODES.THREED && !has3DUnlocked) {
-              console.log("[Bypass Mode :5000] Auto-detecting SJ 3D Card.");
-              simulateTargetFound();
-            }
-          }, 600);
-        }
       }
 
       startARSession();
@@ -1311,10 +1755,7 @@
       if (ctrlToggleBtn) ctrlToggleBtn.classList.add('hidden');
 
       const reticle = document.getElementById('scanning-reticle');
-      if (reticle) {
-        reticle.classList.add('hidden');
-        reticle.style.display = 'none';
-      }
+      if (reticle) reticle.classList.add('hidden');
 
       // Clear 3D Lifecycle Timers & Unfreeze
       clearConfirmationTimer();
@@ -1335,7 +1776,7 @@
       if (arSceneEl) arSceneEl.style.display = 'none';
 
       // Stop MindAR system if running
-      if (arSceneEl && arSceneEl.systems && arSceneEl.systems['mindar-image-system'] && isARRunning) {
+      if (arSceneEl && arSceneEl.systems && arSceneEl.systems['mindar-image-system']) {
         try {
           arSceneEl.systems['mindar-image-system'].stop();
           isARRunning = false;
@@ -1344,14 +1785,20 @@
         }
       }
 
+      // Stop any existing non-tryon video streams to free camera hardware
+      document.querySelectorAll('video').forEach(v => {
+        if (v.id !== 'webcam' && v.srcObject && v.srcObject.getTracks) {
+          v.srcObject.getTracks().forEach(t => t.stop());
+          v.srcObject = null;
+        }
+      });
+
       updateStatusPill('tracking', 'Virtual Ring Try-On');
       startTryOnSession();
     }
   };
 
-  // ==========================================================================
-  // 6. REAL ASSET LOADING & DIAMOND FILL CONTROLLER (NOT PER SECONDS)
-  // ==========================================================================
+  // 6. REAL ASSET LOADING & DIAMOND FILL CONTROLLER
   function setupLoadingScreen(onComplete) {
     const loadingScreen = document.getElementById('loading-screen');
     const diamondFill = document.getElementById('diamond-fill');
@@ -1361,18 +1808,23 @@
       return;
     }
 
-    const assetsToLoad = [
-      { url: './assets/glb/Ring.glb', type: 'fetch' },
+    // Critical UI assets required for initial startup
+    const criticalAssets = [
+      { url: './assets/daimond.png', type: 'image' },
+      { url: './assets/AR/shivam_logo.png', type: 'image' }
+    ];
+
+    // Non-critical heavy assets loaded asynchronously in background
+    const backgroundAssets = [
+      { url: './assets/glb/ringwithdaimond.glb', type: 'fetch' },
       { url: './assets/glb/Shivam.glb', type: 'fetch' },
       { url: './assets/AR/shivam_banner.png', type: 'image' },
-      { url: './assets/AR/shivam_logo.png', type: 'image' },
       { url: './assets/AR/Booth.png', type: 'image' },
       { url: './assets/cards/targets.png', type: 'image' },
-      { url: './assets/daimond.png', type: 'image' },
       { url: './assets/targets.mind', type: 'fetch' }
     ];
 
-    const totalWeight = assetsToLoad.length + 1; // +1 for A-Frame WebGL Scene ready
+    const totalWeight = criticalAssets.length + 1; // +1 for scene
     let loadedCount = 0;
     let targetProgress = 0;
     let currentDisplayProgress = 0;
@@ -1389,10 +1841,8 @@
       targetProgress = Math.min(100, (loadedCount / totalWeight) * 100);
     };
 
-    // Smooth 60fps interpolation for natural visual diamond filling
     function stepProgress() {
-      // Smoothly advance displayed percentage towards actual asset download progress
-      currentDisplayProgress += (targetProgress - currentDisplayProgress) * 0.15;
+      currentDisplayProgress += (targetProgress - currentDisplayProgress) * 0.25;
 
       if (targetProgress >= 100 && (100 - currentDisplayProgress) < 0.5) {
         currentDisplayProgress = 100;
@@ -1405,8 +1855,8 @@
             if (typeof onComplete === 'function') onComplete();
             setTimeout(() => {
               loadingScreen.style.display = 'none';
-            }, 600);
-          }, 300);
+            }, 400);
+          }, 150);
         }
         return;
       }
@@ -1429,31 +1879,35 @@
       onItemLoaded();
     }
 
-    // Preload & track all actual network assets
-    assetsToLoad.forEach((asset) => {
-      if (asset.type === 'image') {
-        const img = new Image();
-        img.onload = onItemLoaded;
-        img.onerror = onItemLoaded;
-        img.src = asset.url;
-      } else {
-        fetch(asset.url)
-          .then(() => onItemLoaded())
-          .catch(() => onItemLoaded());
-      }
+    // Preload critical assets synchronously to unblock UI immediately
+    criticalAssets.forEach((asset) => {
+      const img = new Image();
+      img.onload = onItemLoaded;
+      img.onerror = onItemLoaded;
+      img.src = asset.url;
     });
 
-    // Failsafe timeout in case of network stall so user is never blocked
+    // Background fetch non-critical assets asynchronously without blocking UI startup
+    setTimeout(() => {
+      backgroundAssets.forEach((asset) => {
+        if (asset.type === 'image') {
+          const img = new Image();
+          img.src = asset.url;
+        } else {
+          fetch(asset.url).catch(() => { });
+        }
+      });
+    }, 100);
+
+    // Ultra-fast failsafe timeout (800ms) so user never waits unnecessarily
     setTimeout(() => {
       if (!isFinished) {
         targetProgress = 100;
       }
-    }, 15000);
+    }, 800);
   }
 
-  // ==========================================================================
-  // 7. MAIN APPLICATION INITIALIZATION
-  // ==========================================================================
+  // Application Initialization
   function initApp() {
     const targetEntity = document.getElementById('ar-target');
     const statusPill = document.getElementById('status-pill');
@@ -1512,7 +1966,7 @@
               node.style.zIndex = '1';
               // Force play for Android Chrome
               if (node.play) {
-                node.play().catch(() => {});
+                node.play().catch(() => { });
               }
             }
             if (
@@ -1530,9 +1984,7 @@
     });
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // ========================================================================
-    // Target Recognition Events (Handles AR Continuous Tracking vs 3D Lifecycle)
-    // ========================================================================
+    // Target Recognition Events
     if (targetEntity) {
       targetEntity.addEventListener('targetFound', () => {
         if (currentMode === MODES.AR) {
@@ -1644,32 +2096,9 @@
       btnStartAr.onclick = window.handleStartARClick;
     }
 
-    // Port 5000 Bypass Helpers: Click status-pill or press Spacebar to toggle card detection
-    if (isBypassMode) {
-      console.log("%c[WebAR Card Bypass Mode Active :5000] Running on Port 5000. Card scanning bypassed! Press SPACEBAR or tap the Status Pill to toggle.", "color: #10b981; font-weight: bold; font-size: 13px;");
-      if (statusPill) {
-        statusPill.style.cursor = 'pointer';
-        statusPill.title = 'Bypass Mode: Click to toggle Card Detection';
-        statusPill.addEventListener('click', () => {
-          if (isSimulatedTargetFound) {
-            simulateTargetLost();
-          } else {
-            simulateTargetFound();
-          }
-        });
-      }
 
-      window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-          e.preventDefault();
-          if (isSimulatedTargetFound) {
-            simulateTargetLost();
-          } else {
-            simulateTargetFound();
-          }
-        }
-      });
-    }
+
+
 
     // Launch loading screen first, then open Mode Selection screen upon completion
     setupLoadingScreen(() => {
