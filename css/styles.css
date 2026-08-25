@@ -1302,5 +1302,59 @@ a-scene {
   }
 }
 
+/* Footer Copyright Bar */
+.footer-copyright {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99;
+  color: #ffffff;
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: auto;
+  background: rgba(14, 23, 44, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 4px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(130, 178, 223, 0.2);
+  box-shadow: 0 4px 16px rgba(6, 11, 23, 0.6);
+}
+
+.heart-icon {
+  color: #ffffff;
+}
+
+.sjit-link {
+  color: #ffffff;
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+.dev-credit {
+  margin-left: 8px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.dev-name {
+  color: var(--sj-diamond-light);
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .footer-copyright {
+    font-size: 9.5px;
+    padding: 3px 10px;
+    bottom: 6px;
+    max-width: 95vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 
 
