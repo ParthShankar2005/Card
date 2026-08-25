@@ -234,26 +234,18 @@
 
     <!-- Top Brand Header Bar matching SJ Card Layout -->
     <header id="top-bar">
-      <!-- Status Pill Indicator (Left) -->
-      <div id="tryon-status-pill" class="status-pill tracking">
-        <div class="status-dot"></div>
-        <span id="tryon-status-text">Point hand at Camera</span>
-      </div>
+      <!-- Camera Front/Rear Switcher (Left) -->
+      <button id="btn-switch-camera-tryon" class="header-mode-btn" onclick="handleToggleCameraFacing()"
+        title="Switch Camera (Front/Rear)">
+        <i class="fas fa-camera-rotate"></i>
+        <span class="camera-facing-label">Rear</span>
+      </button>
 
-      <!-- Controls Group (Center) -->
-      <div class="top-bar-controls">
-        <button class="header-mode-btn" onclick="handleOpenModeSelect()" title="Switch Experience Mode">
-          <i class="fas fa-sliders-h"></i>
-          <span>Mode</span>
-        </button>
-
-        <!-- Camera Front/Rear Switcher -->
-        <button id="btn-switch-camera" class="header-mode-btn" onclick="handleToggleCameraFacing()"
-          title="Switch Camera (Front/Rear)">
-          <i class="fas fa-camera-rotate"></i>
-          <span id="camera-facing-label">Rear</span>
-        </button>
-      </div>
+      <!-- Mode Switcher (Center) -->
+      <button class="header-mode-btn" onclick="handleOpenModeSelect()" title="Switch Experience Mode">
+        <i class="fas fa-sliders-h"></i>
+        <span>Mode</span>
+      </button>
 
       <!-- Brand Logo (Right Corner, Pure White) -->
       <div class="brand-badge">
