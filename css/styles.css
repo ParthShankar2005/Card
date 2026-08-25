@@ -1302,27 +1302,26 @@ a-scene {
   }
 }
 
-/* Footer Copyright Bar */
+/* Footer Copyright Bar inside Mode Selection Screen */
 .footer-copyright {
-  position: fixed;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 99;
-  color: #ffffff;
+  position: static;
+  transform: none;
+  margin-top: 18px;
+  color: rgba(255, 255, 255, 0.85);
   font-family: 'Outfit', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.6;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   pointer-events: auto;
-  background: rgba(14, 23, 44, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 4px 14px;
-  border-radius: 20px;
-  border: 1px solid rgba(130, 178, 223, 0.2);
-  box-shadow: 0 4px 16px rgba(6, 11, 23, 0.6);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 12px 4px 0 4px;
+  border: none;
+  border-top: 1px solid rgba(130, 178, 223, 0.18);
+  box-shadow: none;
+  width: 100%;
 }
 
 .heart-icon {
@@ -1336,8 +1335,8 @@ a-scene {
 }
 
 .dev-credit {
-  margin-left: 8px;
-  color: rgba(255, 255, 255, 0.75);
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .dev-name {
@@ -1347,12 +1346,9 @@ a-scene {
 
 @media (max-width: 600px) {
   .footer-copyright {
-    font-size: 9.5px;
-    padding: 3px 10px;
-    bottom: 6px;
-    max-width: 95vw;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 9px;
+    margin-top: 14px;
+    padding-top: 10px;
   }
 }
 
