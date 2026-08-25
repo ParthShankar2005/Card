@@ -1,0 +1,245 @@
+trigger:
+  branches:
+    include:
+    - uat
+
+variables:
+- group: AR_ALL_VARIABLES
+- name: SIT_PATH
+  value: "/var/www/ar.testsjit.in/"
+
+stages:
+
+# =========================================================
+# PIPELINE START NOTIFICATION
+# =========================================================
+- stage: Notify_Start
+  displayName: "Notify Pipeline Start"
+  jobs:
+  - job: NotifyTeams
+    displayName: "Send Teams Start Notification"
+    pool:
+      name: SIT
+    steps:
+    - bash: |
+        curl -H "Content-Type: application/json" \
+        -X POST \
+        -d '{
+          "type": "message",
+          "attachments": [
+            {
+              "contentType": "application/vnd.microsoft.card.adaptive",
+              "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [
+                  {
+                    "type": "TextBlock",
+                    "text": "🚀 AR Application Deployment Started...",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "color": "Accent"
+                  },
+                  {
+                    "type": "FactSet",
+                    "facts": [
+                      {
+                        "title": "Project:",
+                        "value": "$(System.TeamProject)"
+                      },
+                      {
+                        "title": "Pipeline:",
+                        "value": "$(Build.DefinitionName)"
+                      },
+                      {
+                        "title": "Branch:",
+                        "value": "$(Build.SourceBranchName)"
+                      },
+                      {
+                        "title": "Build:",
+                        "value": "$(Build.BuildNumber)"
+                      },
+                      {
+                        "title": "Triggered By:",
+                        "value": "$(Build.RequestedFor)"
+                      }
+                    ]
+                  } 
+                ]
+              }
+            }
+          ]
+        }' "$(TEAMS_WEBHOOK_URL)"
+      displayName: "Teams Start Notification"
+
+# =========================================================
+# UAT / SIT DEPLOYMENT
+# =========================================================
+- stage: Deploy_UAT
+  displayName: "Deploy UAT"
+  dependsOn: Notify_Start
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/uat')
+  jobs:
+  - job: DeployUAT
+    displayName: "Deploy UAT Container"
+    pool:
+      name: SIT
+      demands:
+      - agent.name -equals shivamagent
+    steps:
+    - checkout: self
+      clean: true
+
+    - bash: |
+        set -e
+
+        echo "Copying latest source code..."
+        echo "========== Agent Source =========="
+        echo "Build.SourcesDirectory=$(Build.SourcesDirectory)"
+        pwd
+
+        sudo rsync -av \
+          --delete \
+          --exclude='.devcontainer' \
+          --exclude='.git' \
+          --exclude='.github' \
+          --exclude='.husky' \
+          --exclude='.vscode' \
+          "$(Build.SourcesDirectory)/" \
+          "$(SIT_PATH)/"
+
+        echo "Source copied successfully."
+
+        cd $(SIT_PATH)
+
+        echo "========== Current Directory =========="
+        pwd
+
+        echo "========== Docker Compose Version =========="
+        docker compose version
+
+        echo "========== Build =========="
+        sudo docker compose down --remove-orphans
+        sudo docker compose build --no-cache
+        sudo docker compose up -d
+        sudo docker image prune -f
+      displayName: "Build & Deploy UAT"
+
+    - bash: |
+        curl -H "Content-Type: application/json" \
+        -X POST \
+        -d '{
+          "type": "message",
+          "attachments": [
+            {
+              "contentType": "application/vnd.microsoft.card.adaptive",
+              "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [
+                  {
+                    "type": "TextBlock",
+                    "text": "✅ AR Deployment Successful",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "color": "Good"
+                  },
+                  {
+                    "type": "FactSet",
+                    "facts": [
+                      {
+                        "title": "Application:",
+                        "value": "AR Deployment"
+                      },
+                      {
+                        "title": "Environment:",
+                        "value": "UAT"
+                      },
+                      {
+                        "title": "Branch:",
+                        "value": "$(Build.SourceBranchName)"
+                      },
+                      {
+                        "title": "Build:",
+                        "value": "$(Build.BuildNumber)"
+                      },
+                      {
+                        "title": "Status:",
+                        "value": "SUCCESS ✅"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": "Application has been successfully deployed to environment.",
+                    "wrap": true,
+                    "spacing": "Medium"
+                  }
+                ]
+              }
+            }
+          ]
+        }' "$(TEAMS_WEBHOOK_URL)"
+      displayName: "Teams UAT Success Notification"
+      condition: succeeded()
+
+    - bash: |
+        curl -H "Content-Type: application/json" \
+        -X POST \
+        -d '{
+          "type": "message",
+          "attachments": [
+            {
+              "contentType": "application/vnd.microsoft.card.adaptive",
+              "content": {
+                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                "type": "AdaptiveCard",
+                "version": "1.4",
+                "body": [
+                  {
+                    "type": "TextBlock",
+                    "text": "❌ AR Deployment Failed",
+                    "weight": "Bolder",
+                    "size": "Large",
+                    "color": "Attention"
+                  },
+                  {
+                    "type": "FactSet",
+                    "facts": [
+                      {
+                        "title": "Application:",
+                        "value": "AR Deployment"
+                      },
+                      {
+                        "title": "Environment:",
+                        "value": "UAT"
+                      },
+                      {
+                        "title": "Branch:",
+                        "value": "$(Build.SourceBranchName)"
+                      },
+                      {
+                        "title": "Build:",
+                        "value": "$(Build.BuildNumber)"
+                      },
+                      {
+                        "title": "Status:",
+                        "value": "Failed ❌"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "TextBlock",
+                    "text": "Application Deployment Failed.",
+                    "wrap": true,
+                    "spacing": "Medium"
+                  }
+                ]
+              }
+            }
+          ]
+        }' "$(TEAMS_WEBHOOK_URL)"
+      displayName: "Teams UAT Failure Notification"
+      condition: failed()
